@@ -1,16 +1,19 @@
 import { useEffect, useMemo } from 'react'
 import { useControls } from 'leva'
 import {
+  BackSide,
   BufferGeometry,
   CanvasTexture,
   ClampToEdgeWrapping,
   Color,
   DoubleSide,
   Float32BufferAttribute,
+  FrontSide,
   LinearFilter,
   MeshBasicMaterial,
   MeshStandardMaterial,
   SRGBColorSpace,
+  type Side,
   type Texture,
 } from 'three'
 import { RING_INNER_RADIUS, RING_OUTER_RADIUS } from '../lib/constants.ts'
@@ -159,6 +162,7 @@ function createExpandedRingTexture(
   for (let x = 0; x < width; x += 1) {
     const src = x * 4
     const brightness = scatteringRow.data[src] / 255
+    const alpha = 1 - scatteringRow.data[src + 3] / 255
     const [tintRed, tintGreen, tintBlue] = extractTint(
       colorRow.data[src] / 255,
       colorRow.data[src + 1] / 255,
@@ -171,20 +175,21 @@ function createExpandedRingTexture(
       tintBlue,
       warmth,
     )
-    const linearRed = baseRed * brightness
-    const linearGreen = baseGreen * brightness
-    const linearBlue = baseBlue * brightness
+    const linearRed = baseRed * brightness * alpha
+    const linearGreen = baseGreen * brightness * alpha
+    const linearBlue = baseBlue * brightness * alpha
 
     const red = Math.round(srgbEncode(linearRed) * 255)
     const green = Math.round(srgbEncode(linearGreen) * 255)
     const blue = Math.round(srgbEncode(linearBlue) * 255)
+    const encodedAlpha = Math.round(alpha * 255)
 
     for (let y = 0; y < EXPANDED_TEXTURE_HEIGHT; y += 1) {
       const dst = (y * width + x) * 4
       outputData[dst] = red
       outputData[dst + 1] = green
       outputData[dst + 2] = blue
-      outputData[dst + 3] = 255
+      outputData[dst + 3] = encodedAlpha
     }
   }
 
@@ -205,12 +210,16 @@ function createExpandedRingTexture(
 
 function createTexturedMaterial(
   texture: Texture,
+  side: Side,
+  opacity: number,
 ) {
   const material = new MeshBasicMaterial({
     map: texture,
-    transparent: false,
-    side: DoubleSide,
-    depthWrite: true,
+    opacity,
+    transparent: true,
+    premultipliedAlpha: true,
+    side,
+    depthWrite: false,
     toneMapped: false,
   })
   return material
@@ -253,21 +262,30 @@ export function Rings({ textured = true }: { textured?: boolean }) {
     return createExpandedRingTexture(colorTexture, scatteringTexture, chromaGain, warmth)
   }, [colorTexture, scatteringTexture, chromaGain, warmth])
 
-  const material = useMemo(() => {
+  const materials = useMemo(() => {
     if (!textured || !expandedTexture) return null
-    return createTexturedMaterial(expandedTexture)
-  }, [textured, expandedTexture])
+    return {
+      back: createTexturedMaterial(expandedTexture, BackSide, opacity),
+      front: createTexturedMaterial(expandedTexture, FrontSide, opacity),
+    }
+  }, [textured, expandedTexture, opacity])
 
   useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => () => fallback.dispose(), [fallback])
   useEffect(() => () => expandedTexture?.dispose(), [expandedTexture])
-  useEffect(() => () => material?.dispose(), [material])
+  useEffect(
+    () => () => {
+      materials?.back.dispose()
+      materials?.front.dispose()
+    },
+    [materials],
+  )
   useEffect(() => {
     if (colorError) console.warn(`Rings: failed to load ${COLOR_TEXTURE_PATH}`, colorError)
     if (scatteringError) console.warn(`Rings: failed to load ${SCATTERING_TEXTURE_PATH}`, scatteringError)
   }, [colorError, scatteringError])
 
-  if (!material) {
+  if (!materials) {
     return (
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
@@ -279,11 +297,17 @@ export function Rings({ textured = true }: { textured?: boolean }) {
   }
 
   return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      renderOrder={1}
-      geometry={geometry}
-      material={material}
-    />
+    <group rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh
+        renderOrder={1}
+        geometry={geometry}
+        material={materials.back}
+      />
+      <mesh
+        renderOrder={2}
+        geometry={geometry}
+        material={materials.front}
+      />
+    </group>
   )
 }
