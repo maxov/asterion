@@ -7,6 +7,7 @@ import { Saturn } from './Saturn.tsx'
 import { Atmosphere } from './Atmosphere.tsx'
 import { Rings } from './Rings.tsx'
 import { Stars } from './Stars.tsx'
+import { Titan } from './Titan.tsx'
 import { Lighting } from './Lighting.tsx'
 import {
   SATURN_AXIAL_TILT_DEG,
@@ -181,6 +182,7 @@ export function Scene() {
         <Saturn textured={texturedSaturn} />
         <Atmosphere />
         <Rings textured={texturedRings} />
+        <Titan />
         {debugCanary ? <DebugCanary /> : null}
       </group>
 

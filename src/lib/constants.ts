@@ -6,6 +6,17 @@ export const SATURN_POLAR_RADIUS = 54_364;
 export const RING_INNER_RADIUS = 74_500;
 export const RING_OUTER_RADIUS = 140_220;
 
+
+// Titan (Saturn VI) — mean physical/orbital elements (J2000 where noted).
+// Source set used in-app: NASA + JPL summary values.
+export const TITAN_RADIUS_KM = 2_574.73;
+export const TITAN_ORBIT_SEMIMAJOR_AXIS_KM = 1_221_870;
+export const TITAN_ORBIT_ECCENTRICITY = 0.0288;
+export const TITAN_ORBIT_PERIOD_DAYS = 15.945421;
+export const TITAN_ORBIT_INCLINATION_DEG = 0.34854;
+export const TITAN_LONGITUDE_OF_PERIAPSIS_DEG = 186.5855;
+export const TITAN_MEAN_LONGITUDE_J2000_DEG = 189.64;
+
 // Axial tilt relative to orbital plane (degrees)
 export const SATURN_AXIAL_TILT_DEG = 26.73;
 
