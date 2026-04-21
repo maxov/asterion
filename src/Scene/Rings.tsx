@@ -108,7 +108,35 @@ function drawScaledRow(
   return context.getImageData(0, 0, width, 1)
 }
 
-function createExpandedRingTexture(colorTexture: Texture, scatteringTexture: Texture) {
+function srgbEncode(linear: number) {
+  const value = Math.min(Math.max(linear, 0), 1)
+  if (value <= 0.0031308) return value * 12.92
+  return 1.055 * Math.pow(value, 1 / 2.4) - 0.055
+}
+
+function extractTint(red: number, green: number, blue: number, chromaGain: number) {
+  const luma = Math.max(red * 0.2126 + green * 0.7152 + blue * 0.0722, 0.05)
+  return [
+    Math.min(Math.max(1 + (red / luma - 1) * chromaGain, 0), 1.4),
+    Math.min(Math.max(1 + (green / luma - 1) * chromaGain, 0), 1.4),
+    Math.min(Math.max(1 + (blue / luma - 1) * chromaGain, 0), 1.4),
+  ] as const
+}
+
+function applyWarmTint(red: number, green: number, blue: number, warmth: number) {
+  return [
+    red * (1 + 0.08 * warmth),
+    green * (1 + 0.02 * warmth),
+    blue * (1 - 0.08 * warmth),
+  ] as const
+}
+
+function createExpandedRingTexture(
+  colorTexture: Texture,
+  scatteringTexture: Texture,
+  chromaGain: number,
+  warmth: number,
+) {
   const colorImage = colorTexture.image as CanvasImageSource & { width?: number; height?: number } | undefined
   const scatteringImage = scatteringTexture.image as CanvasImageSource & { width?: number; height?: number } | undefined
 
@@ -131,9 +159,25 @@ function createExpandedRingTexture(colorTexture: Texture, scatteringTexture: Tex
   for (let x = 0; x < width; x += 1) {
     const src = x * 4
     const brightness = scatteringRow.data[src] / 255
-    const red = Math.round(colorRow.data[src] * brightness)
-    const green = Math.round(colorRow.data[src + 1] * brightness)
-    const blue = Math.round(colorRow.data[src + 2] * brightness)
+    const [tintRed, tintGreen, tintBlue] = extractTint(
+      colorRow.data[src] / 255,
+      colorRow.data[src + 1] / 255,
+      colorRow.data[src + 2] / 255,
+      chromaGain,
+    )
+    const [baseRed, baseGreen, baseBlue] = applyWarmTint(
+      tintRed,
+      tintGreen,
+      tintBlue,
+      warmth,
+    )
+    const linearRed = baseRed * brightness
+    const linearGreen = baseGreen * brightness
+    const linearBlue = baseBlue * brightness
+
+    const red = Math.round(srgbEncode(linearRed) * 255)
+    const green = Math.round(srgbEncode(linearGreen) * 255)
+    const blue = Math.round(srgbEncode(linearBlue) * 255)
 
     for (let y = 0; y < EXPANDED_TEXTURE_HEIGHT; y += 1) {
       const dst = (y * width + x) * 4
@@ -182,8 +226,10 @@ export function Rings({ textured = true }: { textured?: boolean }) {
     SCATTERING_TEXTURE_PATH,
   )
 
-  const { opacity } = useControls('Rings', {
+  const { opacity, chromaGain, warmth } = useControls('Rings', {
     opacity: { value: 0.7, min: 0, max: 1, step: 0.01, label: 'Opacity' },
+    chromaGain: { value: 3.5, min: 1, max: 6, step: 0.05, label: 'Color Chroma' },
+    warmth: { value: 0.4, min: 0, max: 1, step: 0.01, label: 'Warmth' },
   })
 
   const geometry = useMemo(() => createRingGeometry(INNER, OUTER, SEGMENTS), [])
@@ -204,8 +250,8 @@ export function Rings({ textured = true }: { textured?: boolean }) {
 
   const expandedTexture = useMemo(() => {
     if (!colorTexture || !scatteringTexture) return null
-    return createExpandedRingTexture(colorTexture, scatteringTexture)
-  }, [colorTexture, scatteringTexture])
+    return createExpandedRingTexture(colorTexture, scatteringTexture, chromaGain, warmth)
+  }, [colorTexture, scatteringTexture, chromaGain, warmth])
 
   const material = useMemo(() => {
     if (!textured || !expandedTexture) return null
