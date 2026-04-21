@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import {
   Color,
@@ -119,6 +119,13 @@ function titanPositionAtDate(dateMs: number): Vector3 {
 export function Titan() {
   const meshRef = useRef<Mesh>(null)
 
+  useLayoutEffect(() => {
+    const mesh = meshRef.current
+    if (!mesh) return
+
+    mesh.position.copy(titanPositionAtDate(Date.now()))
+  }, [])
+
   useFrame(() => {
     const mesh = meshRef.current
     if (!mesh) return
@@ -126,12 +133,10 @@ export function Titan() {
     mesh.position.copy(titanPositionAtDate(Date.now()))
   })
 
-  const initialPosition = useMemo(() => titanPositionAtDate(Date.now()), [])
-
   return (
     <>
       <TitanOrbitPath />
-      <mesh ref={meshRef} position={initialPosition}>
+      <mesh ref={meshRef}>
         <sphereGeometry args={[TITAN_RADIUS, 48, 24]} />
         <meshStandardMaterial color={TITAN_COLOR} roughness={0.9} metalness={0} />
       </mesh>
