@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
 import {
   BufferGeometry,
   Float32BufferAttribute,
   TextureLoader,
+  type Texture,
   EquirectangularReflectionMapping,
   SRGBColorSpace,
   Euler,
@@ -77,11 +78,18 @@ function PanoramaBackground({
   onLoadFailed: () => void
 }) {
   const { scene } = useThree()
+  const sceneRef = useRef(scene)
+
+  useEffect(() => {
+    sceneRef.current = scene
+  }, [scene])
 
   useEffect(() => {
     const panorama = PANORAMAS[panoramaId]
     const loader = new TextureLoader()
+    const activeScene = sceneRef.current
     let disposed = false
+    let loadedTexture: Texture | null = null
 
     loader.load(
       panorama.file,
@@ -90,14 +98,15 @@ function PanoramaBackground({
           texture.dispose()
           return
         }
+        loadedTexture = texture
         texture.mapping = EquirectangularReflectionMapping
         texture.colorSpace = SRGBColorSpace
 
-        scene.background = texture
+        activeScene.background = texture
         const q = quaternionForFrame(panorama.frame)
         const euler = new Euler().setFromQuaternion(q)
-        scene.backgroundRotation.copy(euler)
-        scene.environment = null
+        activeScene.backgroundRotation.copy(euler)
+        activeScene.environment = null
       },
       undefined,
       () => {
@@ -113,14 +122,17 @@ function PanoramaBackground({
 
     return () => {
       disposed = true
-      scene.background = null
+      if (activeScene.background === loadedTexture) {
+        activeScene.background = null
+      }
+      loadedTexture?.dispose()
     }
-  }, [scene, panoramaId, onLoadFailed])
+  }, [panoramaId, onLoadFailed])
 
   // Update intensity reactively
   useEffect(() => {
-    scene.backgroundIntensity = intensity
-  }, [scene, intensity])
+    sceneRef.current.backgroundIntensity = intensity
+  }, [intensity])
 
   return null
 }
@@ -129,10 +141,32 @@ function PanoramaBackground({
 // Stars: tries selected panorama, falls back to point cloud
 // ---------------------------------------------------------------------------
 
-export function Stars() {
+function SelectedStarfield({
+  panoramaId,
+  intensity,
+}: {
+  panoramaId: PanoramaId
+  intensity: number
+}) {
   const [loadFailed, setLoadFailed] = useState(false)
-  const onLoadFailed = useRef(() => setLoadFailed(true)).current
+  const onLoadFailed = useCallback(() => {
+    setLoadFailed(true)
+  }, [])
 
+  if (loadFailed) {
+    return <PointCloudFallback />
+  }
+
+  return (
+    <PanoramaBackground
+      panoramaId={panoramaId}
+      intensity={intensity}
+      onLoadFailed={onLoadFailed}
+    />
+  )
+}
+
+export function Stars() {
   const { panorama: selectedId, intensity } = useControls('Starfield', {
     panorama: {
       value: DEFAULT_PANORAMA,
@@ -141,21 +175,13 @@ export function Stars() {
     },
     intensity: { value: 0.2, min: 0, max: 2, step: 0.01, label: 'Intensity' },
   })
-
-  // Reset failure state when the user picks a different panorama
-  useEffect(() => {
-    setLoadFailed(false)
-  }, [selectedId])
-
-  if (loadFailed) {
-    return <PointCloudFallback />
-  }
+  const panoramaId = selectedId as PanoramaId
 
   return (
-    <PanoramaBackground
-      panoramaId={selectedId as PanoramaId}
+    <SelectedStarfield
+      key={panoramaId}
+      panoramaId={panoramaId}
       intensity={intensity}
-      onLoadFailed={onLoadFailed}
     />
   )
 }
