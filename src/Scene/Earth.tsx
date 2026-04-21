@@ -26,14 +26,17 @@ import {
 } from "../lib/planetTextures.ts";
 import { usePreparedSharedTexture } from "../lib/useSharedTexture.ts";
 import { createEarthAtmosphereMaterial } from "../shaders/earthAtmosphereMaterial.ts";
+import { createEarthAuroraMaterial } from "../shaders/earthAuroraMaterial.ts";
 import { createEarthMaterial } from "../shaders/earthMaterial.ts";
 
 const EARTH_RADIUS = kmToUnits(EARTH_RADIUS_KM);
 const ATMOSPHERE_SCALE = 1.02;
 const CLOUD_LAYER_SCALE = 1.003;
+const AURORA_LAYER_SCALE = 1.012;
 const FALLBACK_COLOR = "#3f78c7";
 const NIGHT_LIGHTS_INTENSITY = 1.15;
 const CLOUD_DRIFT_PERIOD_MS = 96 * 3_600_000;
+const AURORA_LOOP_MS = 9 * 3_600_000;
 
 type EarthProps = {
   localSunDirection: Vector3;
@@ -97,6 +100,7 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     () => createEarthAtmosphereMaterial(),
     [],
   );
+  const auroraMaterialBundle = useMemo(() => createEarthAuroraMaterial(), []);
 
   const earthMaterialBundle = useMemo(() => {
     if (!dayTexture || !nightTexture) return null;
@@ -130,6 +134,11 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       atmosphereMaterialBundle.material.dispose();
     };
   }, [atmosphereMaterialBundle]);
+  useEffect(() => {
+    return () => {
+      auroraMaterialBundle.material.dispose();
+    };
+  }, [auroraMaterialBundle]);
 
   useEffect(() => {
     if (dayError) {
@@ -167,15 +176,19 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       });
     }
 
-    if (!earthMaterialBundle) return;
-
-    earthMaterialBundle.monthBlendUniform.value = timeline.blend;
-    earthMaterialBundle.sunDirectionUniform.value
-      .copy(localSunDirection)
-      .normalize();
+    if (earthMaterialBundle) {
+      earthMaterialBundle.monthBlendUniform.value = timeline.blend;
+      earthMaterialBundle.sunDirectionUniform.value
+        .copy(localSunDirection)
+        .normalize();
+    }
     atmosphereMaterialBundle.sunDirectionUniform.value
       .copy(localSunDirection)
       .normalize();
+    auroraMaterialBundle.sunDirectionUniform.value.copy(localSunDirection).normalize();
+    auroraMaterialBundle.phaseUniform.value =
+      (((simulationDateMs % AURORA_LOOP_MS) + AURORA_LOOP_MS) % AURORA_LOOP_MS) /
+      AURORA_LOOP_MS;
 
     if (cloudSpinRef.current) {
       const cloudPhase =
@@ -195,6 +208,7 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
         <group ref={cloudSpinRef}>
           <mesh
             material={cloudMaterial}
+            renderOrder={1}
             scale={[CLOUD_LAYER_SCALE, CLOUD_LAYER_SCALE, CLOUD_LAYER_SCALE]}
           >
             <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
@@ -202,7 +216,15 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
         </group>
       ) : null}
       <mesh
+        material={auroraMaterialBundle.material}
+        renderOrder={2}
+        scale={[AURORA_LAYER_SCALE, AURORA_LAYER_SCALE, AURORA_LAYER_SCALE]}
+      >
+        <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
+      </mesh>
+      <mesh
         material={atmosphereMaterialBundle.material}
+        renderOrder={3}
         scale={[ATMOSPHERE_SCALE, ATMOSPHERE_SCALE, ATMOSPHERE_SCALE]}
       >
         <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
