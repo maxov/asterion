@@ -126,6 +126,33 @@ stabilizes. To reactivate it, flip the `output_mode` in the
 `saturn_rings_bjj` source entry and rewrite Rings.tsx against the two-texture
 outputs.
 
+## Rings: textured path blocked on three/webgpu bug
+
+Shipping rings with fallback solid-color `MeshStandardMaterial`. The textured
+path is blocked by a bug we could not isolate.
+
+What we tried (all caused flicker-to-black, none produced validation errors):
+- TSL multi-channel material (`createRingMaterial`) with scattering + color textures
+- Plain `MeshBasicNodeMaterial` with a combined RGBA texture
+- Plain `MeshStandardNodeMaterial` with a combined RGBA texture
+- Swapping `NormalBlending` for `AdditiveBlending`
+
+What we ruled out:
+- React lifecycle / StrictMode (console confirms correct mount/load/set/render order)
+- Texture loading (loads correctly, dimensions correct, no 404)
+- Transparency sort (forcing opaque did not help)
+- Saturn-rings interaction specifically (flicker reproduces with rings alone)
+- Postprocessing pipeline (flicker persists with bypass on)
+- `MeshBasicNodeMaterial` as a class (atmosphere uses it without issue)
+
+Atmosphere's `MeshBasicNodeMaterial` works fine. The difference we couldn't
+pin down is either (a) adding a map, (b) `DoubleSide` vs `BackSide`, or (c)
+something interacting between the rings geometry, the camera, and the
+pipeline that we don't see. Next step is a minimal HTML+three.js repro
+outside this codebase to file upstream.
+
+Stack: three 0.184.0, @react-three/fiber 9.6.0, Safari + WebGPU on M4 Max.
+
 ## Known deprecation warnings we accept
 
 - `THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.`
