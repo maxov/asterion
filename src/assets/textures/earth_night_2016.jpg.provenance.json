@@ -1,0 +1,22 @@
+{
+  "source_id": "earth_night_black_marble_2016",
+  "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_01deg.jpg",
+  "source_page": "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/",
+  "license": "Public Domain (NASA imagery)",
+  "attribution": "NASA Earth Observatory",
+  "sha256_raw": "d87de751a264e4f8ff69c68de5dab9606daee87a6f15ae743c93200743bd7ec1",
+  "sha256_output": "09a393625ae40fc39d6b8a0698d7fdb3706cbe14e40c2ec750658bb1475314ba",
+  "processor": "saturn_body",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T12:26:52.072997+00:00",
+  "input_dimensions": [
+    3600,
+    1800
+  ],
+  "output_dimensions": [
+    3600,
+    1800
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

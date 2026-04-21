@@ -111,3 +111,171 @@ processor = "starfield"
 coordinate_frame = "galactic"
 max_width = 8192
 output = "milky_way_risinger.jpg"
+
+[[source]]
+id = "earth_day_01"
+description = "Earth Blue Marble base map for January (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/january/world.200401.3x5400x2700.jpg"
+sha256 = "99f5faad74efe985fbf1714c8be7296ca9999759a1215b65f99b7f1df278dde5"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_01.jpg"
+
+[[source]]
+id = "earth_day_02"
+description = "Earth Blue Marble base map for February (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/february/world.200402.3x5400x2700.jpg"
+sha256 = "252444b224c7dc10289616fb5e3cd85c3738fca9ddbdc267775cd22a748bbfbe"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_02.jpg"
+
+[[source]]
+id = "earth_day_03"
+description = "Earth Blue Marble base map for March (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/march/world.200403.3x5400x2700.jpg"
+sha256 = "0d9967be048b5e2ba62195dd610042c9e0926b4eb9d1e9ae53dbf20eaadd9228"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_03.jpg"
+
+[[source]]
+id = "earth_day_04"
+description = "Earth Blue Marble base map for April (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/april/world.200404.3x5400x2700.jpg"
+sha256 = "8db8d5e545b31cde0e4e5dfa46cb116bf485243a0200c2d6e4b04b4e6937f669"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_04.jpg"
+
+[[source]]
+id = "earth_day_05"
+description = "Earth Blue Marble base map for May (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/may/world.200405.3x5400x2700.jpg"
+sha256 = "d9a8dfc0a3e54775c3a4aeb547c729f710bb588d82d4602252d7cd7bf43a38ef"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_05.jpg"
+
+[[source]]
+id = "earth_day_06"
+description = "Earth Blue Marble base map for June (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/june/world.200406.3x5400x2700.jpg"
+sha256 = "dc059529b8ed1cfcdd59747a7c3f259c93c1322bf88ca1ec8bab1dd71fcc57f5"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_06.jpg"
+
+[[source]]
+id = "earth_day_07"
+description = "Earth Blue Marble base map for July (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/july/world.200407.3x5400x2700.jpg"
+sha256 = "f55226d46d27e05511f2118dc6aa24f5dbf9b6b2cddc87cc6e0e7dd067c00b11"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_07.jpg"
+
+[[source]]
+id = "earth_day_08"
+description = "Earth Blue Marble base map for August (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/august/world.200408.3x5400x2700.jpg"
+sha256 = "2048023ccc62250c677c0f4b03d4362f997b130eb0154a6cad00aa1b27c390b9"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_08.jpg"
+
+[[source]]
+id = "earth_day_09"
+description = "Earth Blue Marble base map for September (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/september/world.200409.3x5400x2700.jpg"
+sha256 = "ed72e87674861f72e2a6e5df52f0cc6bf3df1edd9b862664cf18ac423e2e9e0e"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_09.jpg"
+
+[[source]]
+id = "earth_day_10"
+description = "Earth Blue Marble base map for October (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/october/world.200410.3x5400x2700.jpg"
+sha256 = "ccfd9b7a5e5ee601e1466556716bba50ea418f3a8e068ab0194ae0425815b1b0"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_10.jpg"
+
+[[source]]
+id = "earth_day_11"
+description = "Earth Blue Marble base map for November (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/november/world.200411.3x5400x2700.jpg"
+sha256 = "d63de0bb4274a7d9df08d2f69eeffc849d0f7aca157c4401f9bd2e41af63b178"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_11.jpg"
+
+[[source]]
+id = "earth_day_12"
+description = "Earth Blue Marble base map for December (5400x2700)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/december/world.200412.3x5400x2700.jpg"
+sha256 = "3d38a8ecaceb1cdb51ced7f831e9ac18d261950049616feff6892efcae0dcc26"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/"
+processor = "saturn_body"
+max_width = 5400
+output = "earth_day_12.jpg"
+
+[[source]]
+id = "earth_night_black_marble_2016"
+description = "Earth at Night Black Marble 2016 global map (3600x1800)"
+url = "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/imagerecords/144000/144898/BlackMarble_2016_01deg.jpg"
+sha256 = "d87de751a264e4f8ff69c68de5dab9606daee87a6f15ae743c93200743bd7ec1"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Earth Observatory"
+source_page = "https://science.nasa.gov/earth/earth-observatory/earth-at-night/maps/"
+processor = "saturn_body"
+max_width = 3600
+output = "earth_night_2016.jpg"
+
+[[source]]
+id = "moon_color_lroc_2k"
+description = "Moon color map from NASA SVS CGI Moon Kit (2048x1024)"
+url = "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg"
+sha256 = "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Scientific Visualization Studio"
+source_page = "https://svs.gsfc.nasa.gov/4720/"
+processor = "saturn_body"
+max_width = 2048
+output = "moon_albedo.jpg"

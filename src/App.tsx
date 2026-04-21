@@ -3,6 +3,7 @@ import { Canvas } from "@react-three/fiber";
 import { Leva } from "leva";
 import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
 import { Scene } from "./Scene/Scene.tsx";
+import { BODY_DEFINITIONS, DEFAULT_FOCUS_BODY_ID } from "./lib/bodies.ts";
 import {
   DEFAULT_EXPOSURE,
   CAMERA_FOV,
@@ -12,7 +13,14 @@ import {
 } from "./lib/constants.ts";
 import { kmVecToUnits } from "./lib/units.ts";
 
-const DEFAULT_CAM_POS = kmVecToUnits(CAMERA_DEFAULT_POSITION_KM);
+const DEFAULT_CAMERA_DISTANCE_SCALE =
+  BODY_DEFINITIONS[DEFAULT_FOCUS_BODY_ID].defaultFocusDistanceKm /
+  Math.hypot(...CAMERA_DEFAULT_POSITION_KM);
+const DEFAULT_CAM_POS = kmVecToUnits([
+  CAMERA_DEFAULT_POSITION_KM[0] * DEFAULT_CAMERA_DISTANCE_SCALE,
+  CAMERA_DEFAULT_POSITION_KM[1] * DEFAULT_CAMERA_DISTANCE_SCALE,
+  CAMERA_DEFAULT_POSITION_KM[2] * DEFAULT_CAMERA_DISTANCE_SCALE,
+]);
 const HUD_IDLE_MS = 1_200;
 const LEVA_PANEL_WIDTH = "20rem";
 const HUD_HOT_CORNER_WIDTH = 128;

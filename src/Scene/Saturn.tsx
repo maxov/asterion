@@ -1,6 +1,5 @@
 import {
   startTransition,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -345,26 +344,46 @@ export function Saturn({
     () => (scatteringTexture ? createShadowProfile(scatteringTexture) : null),
     [scatteringTexture],
   );
-  const deferredSunDirection = useDeferredValue(localSunDirection);
-  const deferredRingShadowStrength = useDeferredValue(ringShadowStrength);
   const shadowSize = SHADOW_TEXTURE_SIZES[shadowResolutionTier];
+  const meshWorldPositionRef = useRef(new Vector3());
+  const lastShadowSunDirectionRef = useRef(new Vector3());
+  const lastRingShadowStrengthRef = useRef(Number.NaN);
 
   useEffect(() => {
     shadowResolutionTierRef.current = shadowResolutionTier;
   }, [shadowResolutionTier]);
 
   useFrame(() => {
+    meshRef.current?.getWorldPosition(meshWorldPositionRef.current);
     const nextTier = selectShadowResolutionTier(
-      camera.position.length(),
+      camera.position.distanceTo(meshWorldPositionRef.current),
       shadowResolutionTierRef.current,
     );
 
-    if (nextTier === shadowResolutionTierRef.current) return;
+    if (nextTier !== shadowResolutionTierRef.current) {
+      shadowResolutionTierRef.current = nextTier;
+      startTransition(() => {
+        setShadowResolutionTier(nextTier);
+      });
+    }
 
-    shadowResolutionTierRef.current = nextTier;
-    startTransition(() => {
-      setShadowResolutionTier(nextTier);
-    });
+    if (!shadowBundle) return;
+
+    const shadowChanged =
+      lastShadowSunDirectionRef.current.distanceToSquared(localSunDirection) >
+        1e-6 ||
+      Math.abs(ringShadowStrength - lastRingShadowStrengthRef.current) > 1e-3;
+
+    if (!shadowChanged) return;
+
+    renderShadowTexture(
+      shadowBundle,
+      shadowProfile,
+      localSunDirection,
+      ringShadowStrength,
+    );
+    lastShadowSunDirectionRef.current.copy(localSunDirection);
+    lastRingShadowStrengthRef.current = ringShadowStrength;
   });
 
   const shadowBundle = useMemo(
@@ -385,26 +404,6 @@ export function Saturn({
       toneMapped: false,
     });
   }, [shadowBundle]);
-
-  useEffect(() => {
-    if (!shadowBundle) return;
-    const frame = requestAnimationFrame(() => {
-      renderShadowTexture(
-        shadowBundle,
-        shadowProfile,
-        deferredSunDirection,
-        deferredRingShadowStrength,
-      );
-    });
-    return () => {
-      cancelAnimationFrame(frame);
-    };
-  }, [
-    shadowBundle,
-    shadowProfile,
-    deferredSunDirection,
-    deferredRingShadowStrength,
-  ]);
 
   useEffect(() => {
     return () => {

@@ -1,0 +1,22 @@
+{
+  "source_id": "earth_day_04",
+  "source_url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/april/world.200404.3x5400x2700.jpg",
+  "source_page": "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/",
+  "license": "Public Domain (NASA imagery)",
+  "attribution": "NASA Earth Observatory",
+  "sha256_raw": "8db8d5e545b31cde0e4e5dfa46cb116bf485243a0200c2d6e4b04b4e6937f669",
+  "sha256_output": "c89e441f0c4f1d1d3632037fc8dd930cc550b5cc9e6ad39037785c2e00062a17",
+  "processor": "saturn_body",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T12:26:50.786303+00:00",
+  "input_dimensions": [
+    5400,
+    2700
+  ],
+  "output_dimensions": [
+    5400,
+    2700
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

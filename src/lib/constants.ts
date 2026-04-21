@@ -2,6 +2,14 @@
 export const SATURN_EQUATORIAL_RADIUS = 60_268;
 export const SATURN_POLAR_RADIUS = 54_364;
 
+// Earth-Moon system (km)
+export const EARTH_RADIUS_KM = 6_378.137;
+export const MOON_RADIUS_KM = 1_737.4;
+export const AU_KM = 149_597_870.7;
+export const EARTH_MOON_MASS_RATIO = 81.30057;
+export const EARTH_AXIAL_TILT_DEG = 23.439281;
+export const SATURN_ROTATION_PERIOD_HOURS = 10.7;
+
 // Ring system (km) — D ring inner to F ring outer
 export const RING_INNER_RADIUS = 74_500;
 export const RING_OUTER_RADIUS = 140_220;

@@ -635,10 +635,13 @@ type RingsProps = {
 export function Rings({ sunDirection, textured = true }: RingsProps) {
   const { camera } = useThree()
   const ringGroupRef = useRef<Group>(null)
+  const ringWorldPositionRef = useRef(new Vector3())
   const normalRef = useRef(new Vector3())
   const quaternionRef = useRef(new Quaternion())
   const shadowQuaternionRef = useRef(new Quaternion())
   const localSunDirectionRef = useRef(new Vector3())
+  const lastPlanetShadowSunDirectionRef = useRef(new Vector3())
+  const lastPlanetShadowStrengthRef = useRef(Number.NaN)
   const viewDirRef = useRef(new Vector3())
   const lastPhaseRef = useRef(Number.NaN)
   const lastUnlitMixRef = useRef(Number.NaN)
@@ -770,37 +773,41 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     lastPhaseRef.current = Number.NaN
     lastUnlitMixRef.current = Number.NaN
   }, [textureBundle])
-  useEffect(() => {
-    if (!shadowBundle) return
-    if (!ringGroupRef.current) return
-
-    ringGroupRef.current.getWorldQuaternion(shadowQuaternionRef.current)
-    shadowQuaternionRef.current.invert()
-    localSunDirectionRef.current
-      .copy(sunDirection)
-      .applyQuaternion(shadowQuaternionRef.current)
-      .normalize()
-    renderPlanetShadowTexture(
-      shadowBundle,
-      shadowFillBundle,
-      shadowOpacityProfile,
-      localSunDirectionRef.current,
-      planetShadowStrength,
-    )
-  }, [
-    shadowBundle,
-    shadowFillBundle,
-    shadowOpacityProfile,
-    sunDirection,
-    planetShadowStrength,
-  ])
 
   useFrame(() => {
-    if (!textured || !textureBundle || !ringGroupRef.current) return
+    if (!ringGroupRef.current) return
+
+    if (shadowBundle) {
+      ringGroupRef.current.getWorldQuaternion(shadowQuaternionRef.current)
+      shadowQuaternionRef.current.invert()
+      localSunDirectionRef.current
+        .copy(sunDirection)
+        .applyQuaternion(shadowQuaternionRef.current)
+        .normalize()
+
+      const shadowChanged =
+        lastPlanetShadowSunDirectionRef.current.distanceToSquared(localSunDirectionRef.current) > 1e-6
+        || Math.abs(planetShadowStrength - lastPlanetShadowStrengthRef.current) > 1e-3
+
+      if (shadowChanged) {
+        renderPlanetShadowTexture(
+          shadowBundle,
+          shadowFillBundle,
+          shadowOpacityProfile,
+          localSunDirectionRef.current,
+          planetShadowStrength,
+        )
+        lastPlanetShadowSunDirectionRef.current.copy(localSunDirectionRef.current)
+        lastPlanetShadowStrengthRef.current = planetShadowStrength
+      }
+    }
+
+    if (!textured || !textureBundle) return
 
     ringGroupRef.current.getWorldQuaternion(quaternionRef.current)
+    ringGroupRef.current.getWorldPosition(ringWorldPositionRef.current)
     normalRef.current.set(0, 0, 1).applyQuaternion(quaternionRef.current).normalize()
-    viewDirRef.current.copy(camera.position).normalize()
+    viewDirRef.current.copy(camera.position).sub(ringWorldPositionRef.current).normalize()
 
     const phase = (1 - MathUtils.clamp(viewDirRef.current.dot(sunDirection), -1, 1)) / 2
     const viewPlaneDot = viewDirRef.current.dot(normalRef.current)

@@ -1,44 +1,35 @@
-import { useMemo } from 'react'
-import { Vector3, Color } from 'three'
-import { STAR_SPHERE_RADIUS_KM } from '../lib/constants.ts'
-import { kmToUnits } from '../lib/units.ts'
+import { useRef } from "react";
+import { useFrame } from "@react-three/fiber";
+import { Color, type Mesh, Vector3 } from "three";
+import { STAR_SPHERE_RADIUS_KM } from "../lib/constants.ts";
+import { kmToUnits } from "../lib/units.ts";
 
-const LIGHT_DISTANCE = 1000
 // Place the sun disc on the star sphere so it sits at the backdrop
-const SUN_DISC_DISTANCE = kmToUnits(STAR_SPHERE_RADIUS_KM) * 0.99
-const SUN_DISC_RADIUS = SUN_DISC_DISTANCE * 0.004
-const SUN_COLOR = new Color(0xfff5e1)
-const SUN_DISC_COLOR = SUN_COLOR.clone().multiplyScalar(3)
+const SUN_DISC_DISTANCE = kmToUnits(STAR_SPHERE_RADIUS_KM) * 0.99;
+const SUN_DISC_RADIUS = SUN_DISC_DISTANCE * 0.004;
+const SUN_DISC_COLOR = new Color(0xfff5e1).multiplyScalar(3);
 
 type LightingProps = {
-  direction: Vector3
-  intensity: number
-}
+  direction: Vector3;
+};
 
-export function Lighting({ direction, intensity }: LightingProps) {
-  const lightPos = useMemo(
-    () => direction.clone().multiplyScalar(LIGHT_DISTANCE),
-    [direction],
-  )
-  const discPos = useMemo(
-    () => direction.clone().multiplyScalar(SUN_DISC_DISTANCE),
-    [direction],
-  )
+export function Lighting({ direction }: LightingProps) {
+  const discRef = useRef<Mesh>(null);
+  const discPositionRef = useRef(new Vector3());
+
+  useFrame(() => {
+    discPositionRef.current.copy(direction).multiplyScalar(SUN_DISC_DISTANCE);
+
+    discRef.current?.position.copy(discPositionRef.current);
+  });
 
   return (
     <>
-      <directionalLight
-        position={lightPos}
-        intensity={intensity}
-        color={SUN_COLOR}
-      />
-      <ambientLight intensity={0.005} />
-
       {/* Visible sun disc — emissive so it blooms */}
-      <mesh position={discPos}>
+      <mesh ref={discRef}>
         <sphereGeometry args={[SUN_DISC_RADIUS, 32, 16]} />
         <meshBasicMaterial color={SUN_DISC_COLOR} toneMapped={false} />
       </mesh>
     </>
-  )
+  );
 }
