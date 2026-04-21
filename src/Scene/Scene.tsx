@@ -8,6 +8,7 @@ import { Atmosphere } from "./Atmosphere.tsx";
 import { Rings } from "./Rings.tsx";
 import { Stars } from "./Stars.tsx";
 import { Lighting } from "./Lighting.tsx";
+import { Titan } from "./Titan.tsx";
 import {
   SATURN_AXIAL_TILT_DEG,
   CAMERA_MIN_DISTANCE_KM,
@@ -257,6 +258,7 @@ export function Scene() {
         />
         <Atmosphere />
         <Rings textured={texturedRings} sunDirection={sunDirection} />
+        <Titan />
         {debugCanary ? <DebugCanary /> : null}
       </group>
 
