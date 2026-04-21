@@ -50,8 +50,8 @@ source_page = "https://bjj.mmedia.is/data/s_rings/index.html"
 processor = "saturn_rings_bjj"
 inner_radius_km = 74510
 outer_radius_km = 140390
-output = "saturn_rings_scattering.png"
-extra_outputs = ["saturn_rings_color.png"]
+output_mode = "combined"
+output = "saturn_rings.png"
 
 [[source.extra_files]]
 name = "backscattered"

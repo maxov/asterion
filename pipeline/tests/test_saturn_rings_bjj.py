@@ -231,3 +231,142 @@ def test_processor_varying_values(tmp_path: Path) -> None:
     px_mid = scattering.getpixel((mid, 0))
     expected_mid = round(mid / (N - 1) * 255)
     assert abs(px_mid[1] - expected_mid) <= 1  # G ~ 0.5
+
+
+# --- Combined output mode tests ---
+
+
+def _write_combined_inputs(
+    raw_dir: Path,
+    transparency: list[float],
+    backscattered: list[float],
+    forwardscattered: list[float],
+    unlitside: list[float],
+    colors: list[tuple[float, ...]],
+) -> Path:
+    """Write all 5 input files and return the transparency path."""
+    transparency_path = raw_dir / "test_bjj.txt"
+    _write_scalar(transparency_path, transparency)
+    _write_scalar(raw_dir / "test_bjj_backscattered.txt", backscattered)
+    _write_scalar(raw_dir / "test_bjj_forwardscattered.txt", forwardscattered)
+    _write_scalar(raw_dir / "test_bjj_unlitside.txt", unlitside)
+    _write_color_triplets(raw_dir / "test_bjj_color.txt", colors)
+    return transparency_path
+
+
+def test_combined_output_dimensions(tmp_path: Path) -> None:
+    """Combined mode produces a single 13177x1 RGBA image."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+
+    transparency_path = _write_combined_inputs(
+        raw,
+        transparency=[0.8] * N,
+        backscattered=[0.5] * N,
+        forwardscattered=[0.3] * N,
+        unlitside=[0.1] * N,
+        colors=[(0.9, 0.7, 0.5)] * N,
+    )
+
+    inter = tmp_path / "inter"
+    source = _make_source(output_mode="combined", output="saturn_rings.png")
+
+    with patch(
+        "pipeline.processors.saturn_rings_bjj.raw_dir", return_value=raw
+    ):
+        out_path, extra = saturn_rings_bjj(transparency_path, inter, source)
+
+    assert out_path.name == "saturn_rings.png"
+    img = Image.open(out_path)
+    assert img.size == (N, 1)
+    assert img.mode == "RGBA"
+
+    # No extra output paths in combined mode
+    assert "_extra_output_paths" not in extra
+    assert extra["output_mode"] == "combined"
+    assert extra["inner_radius_km"] == 74510.0
+    assert extra["sample_count"] == N
+
+
+def test_combined_rgb_and_alpha_values(tmp_path: Path) -> None:
+    """Verify RGB = color * backscattered and A = 1 - transparency."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+
+    # Known values: color=(0.9, 0.7, 0.5), backscattered=0.6, transparency=0.8
+    # Expected: R=0.9*0.6=0.54, G=0.7*0.6=0.42, B=0.5*0.6=0.30, A=1-0.8=0.2
+    transparency_path = _write_combined_inputs(
+        raw,
+        transparency=[0.8] * N,
+        backscattered=[0.6] * N,
+        forwardscattered=[0.0] * N,
+        unlitside=[0.0] * N,
+        colors=[(0.9, 0.7, 0.5)] * N,
+    )
+
+    inter = tmp_path / "inter"
+    source = _make_source(output_mode="combined", output="saturn_rings.png")
+
+    with patch(
+        "pipeline.processors.saturn_rings_bjj.raw_dir", return_value=raw
+    ):
+        out_path, _ = saturn_rings_bjj(transparency_path, inter, source)
+
+    img = Image.open(out_path)
+    px = img.getpixel((0, 0))
+    assert px[0] == round(0.54 * 255)  # R = 0.9 * 0.6
+    assert px[1] == round(0.42 * 255)  # G = 0.7 * 0.6
+    assert px[2] == round(0.30 * 255)  # B = 0.5 * 0.6
+    assert px[3] == round(0.2 * 255)   # A = 1 - 0.8
+
+    # Also check a different index (last sample, same uniform values)
+    px_last = img.getpixel((N - 1, 0))
+    assert px_last == px
+
+
+def test_combined_varying_values(tmp_path: Path) -> None:
+    """Verify combined mode with a ramp of values at specific indices."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+
+    # backscattered ramps 0→1, transparency ramps 1→0,
+    # color constant (1.0, 0.5, 0.0)
+    backscattered = [i / (N - 1) for i in range(N)]
+    transparency = [1.0 - i / (N - 1) for i in range(N)]
+
+    transparency_path = _write_combined_inputs(
+        raw,
+        transparency=transparency,
+        backscattered=backscattered,
+        forwardscattered=[0.0] * N,
+        unlitside=[0.0] * N,
+        colors=[(1.0, 0.5, 0.0)] * N,
+    )
+
+    inter = tmp_path / "inter"
+    source = _make_source(output_mode="combined", output="saturn_rings.png")
+
+    with patch(
+        "pipeline.processors.saturn_rings_bjj.raw_dir", return_value=raw
+    ):
+        out_path, _ = saturn_rings_bjj(transparency_path, inter, source)
+
+    img = Image.open(out_path)
+
+    # First sample: backscattered=0, transparency=1 → RGB=(0,0,0), A=0
+    px0 = img.getpixel((0, 0))
+    assert px0 == (0, 0, 0, 0)
+
+    # Last sample: backscattered=1, transparency=0 → RGB=(255,128,0), A=255
+    px_last = img.getpixel((N - 1, 0))
+    assert px_last[0] == 255          # R = 1.0 * 1.0
+    assert px_last[1] == round(0.5 * 255)  # G = 0.5 * 1.0
+    assert px_last[2] == 0            # B = 0.0 * 1.0
+    assert px_last[3] == 255          # A = 1 - 0 = 1.0
+
+    # Middle sample: backscattered≈0.5, transparency≈0.5
+    mid = N // 2
+    px_mid = img.getpixel((mid, 0))
+    mid_back = mid / (N - 1)
+    assert abs(px_mid[0] - round(1.0 * mid_back * 255)) <= 1
+    assert abs(px_mid[3] - round(mid_back * 255)) <= 1

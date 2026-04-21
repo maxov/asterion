@@ -31,6 +31,7 @@ _OPTIONAL_DEFAULTS: dict[str, Any] = {
     "outer_radius_km": 0.0,
     "expected_extension": "",
     "coordinate_frame": "",
+    "output_mode": "",
 }
 
 
@@ -64,6 +65,7 @@ class Source:
     outer_radius_km: float = 0.0
     expected_extension: str = ""
     coordinate_frame: str = ""
+    output_mode: str = ""
     extra_files: tuple[ExtraFile, ...] = ()
     extra_outputs: tuple[str, ...] = ()
 
