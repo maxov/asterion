@@ -9,8 +9,18 @@ export type SimulationTimeline = {
 
 export const REALTIME_DAYS_PER_SECOND = 1 / 86_400;
 
-function padUtcField(value: number) {
+function padDateField(value: number) {
   return value.toString().padStart(2, "0");
+}
+
+function timeZoneOffsetLabel(date: Date) {
+  const offsetMinutes = -date.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const absoluteMinutes = Math.abs(offsetMinutes);
+  const hours = Math.floor(absoluteMinutes / 60);
+  const minutes = absoluteMinutes % 60;
+
+  return `UTC${sign}${padDateField(hours)}:${padDateField(minutes)}`;
 }
 
 export function timelineSystemMs() {
@@ -59,16 +69,45 @@ export function formatUtcTimestamp(dateMs: number) {
   return new Date(dateMs).toISOString().replace(/\.\d{3}Z$/, "Z");
 }
 
-export function formatUtcDateTimeInputValue(dateMs: number) {
+export function localTimeZoneName(dateMs = Date.now()) {
+  const date = new Date(dateMs);
+
+  try {
+    const parts = new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).formatToParts(date);
+    const timeZoneName = parts.find(
+      (part) => part.type === "timeZoneName",
+    )?.value;
+
+    return timeZoneName ?? timeZoneOffsetLabel(date);
+  } catch {
+    return timeZoneOffsetLabel(date);
+  }
+}
+
+export function formatLocalTimestamp(dateMs: number) {
   const date = new Date(dateMs);
 
   return [
-    `${date.getUTCFullYear()}-${padUtcField(date.getUTCMonth() + 1)}-${padUtcField(date.getUTCDate())}`,
-    `${padUtcField(date.getUTCHours())}:${padUtcField(date.getUTCMinutes())}:${padUtcField(date.getUTCSeconds())}`,
+    `${date.getFullYear()}-${padDateField(date.getMonth() + 1)}-${padDateField(date.getDate())}`,
+    `${padDateField(date.getHours())}:${padDateField(date.getMinutes())}:${padDateField(date.getSeconds())}`,
+    localTimeZoneName(dateMs),
+  ].join(" ");
+}
+
+export function formatLocalDateTimeInputValue(dateMs: number) {
+  const date = new Date(dateMs);
+
+  return [
+    `${date.getFullYear()}-${padDateField(date.getMonth() + 1)}-${padDateField(date.getDate())}`,
+    `${padDateField(date.getHours())}:${padDateField(date.getMinutes())}:${padDateField(date.getSeconds())}`,
   ].join("T");
 }
 
-export function parseUtcDateTimeInputValue(value: string) {
+export function parseLocalDateTimeInputValue(value: string) {
   const match = value
     .trim()
     .match(
@@ -83,23 +122,22 @@ export function parseUtcDateTimeInputValue(value: string) {
   const hour = Number(match[4]);
   const minute = Number(match[5]);
   const second = Number(match[6] ?? "0");
-  const parsed = Date.UTC(year, monthIndex, day, hour, minute, second);
+  const parsed = new Date(year, monthIndex, day, hour, minute, second);
 
-  if (!Number.isFinite(parsed)) return null;
+  if (!Number.isFinite(parsed.getTime())) return null;
 
-  const date = new Date(parsed);
   if (
-    date.getUTCFullYear() !== year ||
-    date.getUTCMonth() !== monthIndex ||
-    date.getUTCDate() !== day ||
-    date.getUTCHours() !== hour ||
-    date.getUTCMinutes() !== minute ||
-    date.getUTCSeconds() !== second
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== monthIndex ||
+    parsed.getDate() !== day ||
+    parsed.getHours() !== hour ||
+    parsed.getMinutes() !== minute ||
+    parsed.getSeconds() !== second
   ) {
     return null;
   }
 
-  return parsed;
+  return parsed.getTime();
 }
 
 export function parseUtcTimestamp(value: string) {

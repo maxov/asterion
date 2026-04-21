@@ -1,4 +1,11 @@
-import { MathUtils, SRGBColorSpace, type Texture } from "three";
+import {
+  ClampToEdgeWrapping,
+  LinearFilter,
+  MathUtils,
+  NoColorSpace,
+  SRGBColorSpace,
+  type Texture,
+} from "three";
 
 const EARTH_DAY_MONTH_CODES = [
   "01",
@@ -16,7 +23,11 @@ const EARTH_DAY_MONTH_CODES = [
 ] as const;
 
 export const EARTH_NIGHT_TEXTURE_PATH = "/textures/earth_night_2016.jpg";
+export const EARTH_CLOUD_TEXTURE_PATH = "/textures/earth_clouds.png";
 export const MOON_ALBEDO_TEXTURE_PATH = "/textures/moon_albedo.jpg";
+export const MOON_HEIGHT_TEXTURE_PATH = "/textures/moon_height.png";
+export const MOON_HEIGHT_DISPLACEMENT_BIAS_KM = -10;
+export const MOON_HEIGHT_DISPLACEMENT_SCALE_KM = 32.7675;
 
 export type EarthTextureTimeline = {
   blend: number;
@@ -26,6 +37,16 @@ export type EarthTextureTimeline = {
 
 export function configureSrgbTexture(texture: Texture) {
   texture.colorSpace = SRGBColorSpace;
+  texture.needsUpdate = true;
+}
+
+export function configureDataTexture(texture: Texture) {
+  texture.colorSpace = NoColorSpace;
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  texture.wrapS = ClampToEdgeWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
   texture.needsUpdate = true;
 }
 

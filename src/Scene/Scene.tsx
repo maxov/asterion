@@ -17,11 +17,11 @@ import { Moon } from "./Moon.tsx";
 import { Rings } from "./Rings.tsx";
 import { Saturn } from "./Saturn.tsx";
 import { Stars } from "./Stars.tsx";
+import { Sun } from "./Sun.tsx";
 import { SystemLightRig } from "./SystemLightRig.tsx";
 import { Titan } from "./Titan.tsx";
 import {
   BODY_DEFINITIONS,
-  BODY_OPTIONS,
   DEFAULT_FOCUS_BODY_ID,
   type BodyId,
 } from "../lib/bodies.ts";
@@ -33,14 +33,13 @@ import {
   DEFAULT_BLOOM_RADIUS,
   DEFAULT_BLOOM_STRENGTH,
   DEFAULT_BLOOM_THRESHOLD,
-  EARTH_AXIAL_TILT_DEG,
   DEFAULT_EXPOSURE,
   SATURN_AXIAL_TILT_DEG,
   SATURN_ROTATION_PERIOD_HOURS,
   SUN_INTENSITY,
 } from "../lib/constants.ts";
 import {
-  earthRotationAngleRad,
+  setEarthQuaternion,
   setSynchronousQuaternion,
   spinAngleFromHours,
 } from "../lib/bodyOrientation.ts";
@@ -56,16 +55,17 @@ type Pipeline = { outputNode: unknown; renderAsync: () => Promise<void> };
 type OrbitControlsHandle = ElementRef<typeof OrbitControls>;
 type BodyAnchorMap = Record<BodyId, RefObject<Group | null>>;
 type SceneProps = {
+  focusBodyId: BodyId;
   timeline: SimulationTimeline;
 };
 
 const BODY_IDS = Object.keys(BODY_DEFINITIONS) as BodyId[];
 const AXIAL_TILT_RAD = (SATURN_AXIAL_TILT_DEG * Math.PI) / 180;
 const AXIAL_TILT_AXIS = new Vector3(0, 0, 1);
-const EARTH_AXIAL_TILT_RAD = (EARTH_AXIAL_TILT_DEG * Math.PI) / 180;
 const CANARY_COLOR = new Color("#ff1fbf");
 const CAMERA_NEAR_SCALE = 0.01;
 const CAMERA_FAR_MARGIN = 1.2;
+const MIN_FOCUS_DISTANCE = 1e-4;
 const TARGET_FOLLOW_DAMPING = 0.16;
 const DISTANCE_FOLLOW_DAMPING = 0.18;
 const FALLBACK_VIEW_DIRECTION = new Vector3(0.54, 0.31, 0.78).normalize();
@@ -215,35 +215,29 @@ function FocusCameraRig({
   const desiredTargetRef = useRef(new Vector3());
   const currentOffsetRef = useRef(new Vector3());
   const targetDistanceRef = useRef(
-    kmToUnits(BODY_DEFINITIONS[focusBodyId].defaultFocusDistanceKm),
+    Math.max(
+      kmToUnits(BODY_DEFINITIONS[focusBodyId].defaultFocusDistanceKm),
+      MIN_FOCUS_DISTANCE,
+    ),
   );
   const snapToFocusRef = useRef(true);
   const focusDefinition = BODY_DEFINITIONS[focusBodyId];
-  const minDistance = kmToUnits(focusDefinition.minDistanceKm);
-  const maxDistance = kmToUnits(focusDefinition.maxDistanceKm);
 
   useEffect(() => {
-    targetDistanceRef.current = MathUtils.clamp(
+    targetDistanceRef.current = Math.max(
       kmToUnits(focusDefinition.defaultFocusDistanceKm),
-      minDistance,
-      maxDistance,
+      MIN_FOCUS_DISTANCE,
     );
     snapToFocusRef.current = true;
-  }, [
-    focusBodyId,
-    focusDefinition.defaultFocusDistanceKm,
-    maxDistance,
-    minDistance,
-  ]);
+  }, [focusBodyId, focusDefinition.defaultFocusDistanceKm]);
 
   useEffect(() => {
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const scale = Math.pow(0.95, event.deltaY * 0.01);
-      targetDistanceRef.current = MathUtils.clamp(
+      targetDistanceRef.current = Math.max(
         targetDistanceRef.current * scale,
-        minDistance,
-        maxDistance,
+        MIN_FOCUS_DISTANCE,
       );
     };
 
@@ -251,7 +245,7 @@ function FocusCameraRig({
     return () => {
       gl.domElement.removeEventListener("wheel", onWheel);
     };
-  }, [gl, maxDistance, minDistance]);
+  }, [gl]);
 
   useFrame(() => {
     const controls = controlsRef.current;
@@ -294,9 +288,13 @@ function FocusCameraRig({
   return null;
 }
 
-export const Scene = memo(function Scene({ timeline }: SceneProps) {
+export const Scene = memo(function Scene({
+  focusBodyId,
+  timeline,
+}: SceneProps) {
   const camera = useThree((state) => state.camera);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
+  const sunAnchorRef = useRef<Group>(null);
   const saturnAnchorRef = useRef<Group>(null);
   const saturnSpinRef = useRef<Group>(null);
   const titanAnchorRef = useRef<Group>(null);
@@ -308,9 +306,11 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
   const simulationRef = useRef(createSolarSystemState(DEFAULT_FOCUS_BODY_ID));
   const saturnLocalSunDirectionRef = useRef(new Vector3(1, 0, 0));
   const localDirectionToParentRef = useRef(new Vector3());
+  const focusTargetRef = useRef(new Vector3());
 
   const bodyAnchors = useMemo<BodyAnchorMap>(
     () => ({
+      sun: sunAnchorRef,
       earth: earthAnchorRef,
       moon: moonAnchorRef,
       saturn: saturnAnchorRef,
@@ -324,16 +324,6 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
     texturedRings: { value: true, label: "Ring Texture" },
     debugCanary: { value: false, label: "Canary Cube" },
   });
-
-  const { focusBody } = useControls("Navigation", {
-    focusBody: {
-      value: DEFAULT_FOCUS_BODY_ID,
-      options: BODY_OPTIONS,
-      label: "Center On",
-    },
-  });
-  const focusBodyId = focusBody as BodyId;
-  const focusDefinition = BODY_DEFINITIONS[focusBodyId];
 
   const { sunIntensity } = useControls("Lighting", {
     sunIntensity: {
@@ -352,6 +342,12 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
       focusBodyId,
     );
 
+    if (sunAnchorRef.current) {
+      copyKmVectorToUnits(
+        sunAnchorRef.current.position,
+        simulation.bodies.sun.positionRelativeToFocusKm,
+      );
+    }
     if (saturnAnchorRef.current) {
       copyKmVectorToUnits(
         saturnAnchorRef.current.position,
@@ -382,11 +378,9 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
       SATURN_ROTATION_PERIOD_HOURS,
     );
     saturnSpinRef.current?.rotation.set(0, saturnSpinAngle, 0);
-    earthSpinRef.current?.rotation.set(
-      0,
-      earthRotationAngleRad(simulation.dateMs),
-      0,
-    );
+    if (earthSpinRef.current) {
+      setEarthQuaternion(earthSpinRef.current.quaternion, simulation.dateMs);
+    }
 
     saturnLocalSunDirectionRef.current
       .copy(simulation.bodies.saturn.sunDirectionWorld)
@@ -428,14 +422,15 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
       );
     }
 
+    const currentFocusDistance = camera.position.distanceTo(
+      controlsRef.current?.target ?? focusTargetRef.current.set(0, 0, 0),
+    );
     const nextNear = Math.max(
-      0.1,
-      kmToUnits(focusDefinition.defaultFocusDistanceKm) * CAMERA_NEAR_SCALE,
+      MIN_FOCUS_DISTANCE,
+      currentFocusDistance * CAMERA_NEAR_SCALE,
     );
-    const nextFar = Math.max(
-      kmToUnits(furthestBodyDistanceKm * CAMERA_FAR_MARGIN),
-      kmToUnits(focusDefinition.maxDistanceKm) * 1.1,
-    );
+    const nextFar =
+      currentFocusDistance + kmToUnits(furthestBodyDistanceKm * CAMERA_FAR_MARGIN);
 
     if (
       Math.abs(camera.near - nextNear) > 1e-3 ||
@@ -447,6 +442,11 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
     }
   }, -1);
 
+  const focusLightDirection =
+    focusBodyId === "sun"
+      ? camera.position
+      : simulationRef.current.bodies[focusBodyId].sunDirectionWorld;
+
   return (
     <>
       <OrbitControls
@@ -455,8 +455,6 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
         dampingFactor={0.05}
         enablePan={false}
         enableZoom={false}
-        minDistance={kmToUnits(focusDefinition.minDistanceKm)}
-        maxDistance={kmToUnits(focusDefinition.maxDistanceKm)}
       />
       <FocusCameraRig
         bodyAnchors={bodyAnchors}
@@ -465,11 +463,15 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
       />
 
       <SystemLightRig
-        direction={simulationRef.current.bodies[focusBodyId].sunDirectionWorld}
+        direction={focusLightDirection}
         intensity={sunIntensity}
         layer={0}
         targetRef={bodyAnchors[focusBodyId]}
       />
+
+      <group ref={sunAnchorRef}>
+        {focusBodyId === "sun" ? <Sun /> : null}
+      </group>
 
       <group ref={saturnAnchorRef}>
         <group rotation={[0, 0, AXIAL_TILT_RAD]}>
@@ -494,13 +496,11 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
       </group>
 
       <group ref={earthAnchorRef}>
-        <group rotation={[0, 0, EARTH_AXIAL_TILT_RAD]}>
-          <group ref={earthSpinRef}>
-            <Earth
-              localSunDirection={simulationRef.current.bodies.earth.sunDirectionWorld}
-              simulationStateRef={simulationRef}
-            />
-          </group>
+        <group ref={earthSpinRef}>
+          <Earth
+            localSunDirection={simulationRef.current.bodies.earth.sunDirectionWorld}
+            simulationStateRef={simulationRef}
+          />
         </group>
         <group ref={moonAnchorRef}>
           <group ref={moonSpinRef}>
@@ -510,7 +510,9 @@ export const Scene = memo(function Scene({ timeline }: SceneProps) {
       </group>
 
       <Stars />
-      <Lighting direction={simulationRef.current.focusSunDirectionWorld} />
+      {focusBodyId === "sun" ? null : (
+        <Lighting direction={simulationRef.current.focusSunDirectionWorld} />
+      )}
       <Effects />
     </>
   );

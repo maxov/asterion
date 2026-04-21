@@ -5,11 +5,12 @@ import {
   MOON_RADIUS_KM,
   RING_OUTER_RADIUS,
   SATURN_EQUATORIAL_RADIUS,
+  SUN_RADIUS_KM,
   TITAN_RADIUS_KM,
 } from "./constants.ts";
 
-export type BodyId = "saturn" | "titan" | "earth" | "moon";
-export type BodySystemId = "saturnSystem" | "earthSystem";
+export type BodyId = "sun" | "earth" | "moon" | "saturn" | "titan";
+export type BodySystemId = "solarSystem" | "earthSystem" | "saturnSystem";
 
 export const DEFAULT_FOCUS_BODY_ID: BodyId = "earth";
 
@@ -26,27 +27,16 @@ export type BodyDefinition = {
 };
 
 export const BODY_DEFINITIONS: Record<BodyId, BodyDefinition> = {
-  saturn: {
-    defaultFocusDistanceKm: 380_000,
-    id: "saturn",
-    label: "Saturn",
-    maxDistanceKm: CAMERA_MAX_DISTANCE_KM,
-    minDistanceKm: CAMERA_MIN_DISTANCE_KM,
+  sun: {
+    defaultFocusDistanceKm: 2_400_000,
+    id: "sun",
+    label: "Sun",
+    maxDistanceKm: 12_000_000,
+    minDistanceKm: 900_000,
     parentId: null,
-    radiusKm: SATURN_EQUATORIAL_RADIUS,
-    renderRadiusKm: RING_OUTER_RADIUS,
-    systemId: "saturnSystem",
-  },
-  titan: {
-    defaultFocusDistanceKm: 18_000,
-    id: "titan",
-    label: "Titan",
-    maxDistanceKm: 600_000,
-    minDistanceKm: 7_000,
-    parentId: "saturn",
-    radiusKm: TITAN_RADIUS_KM,
-    renderRadiusKm: TITAN_RADIUS_KM,
-    systemId: "saturnSystem",
+    radiusKm: SUN_RADIUS_KM,
+    renderRadiusKm: SUN_RADIUS_KM,
+    systemId: "solarSystem",
   },
   earth: {
     defaultFocusDistanceKm: 42_000,
@@ -69,6 +59,28 @@ export const BODY_DEFINITIONS: Record<BodyId, BodyDefinition> = {
     radiusKm: MOON_RADIUS_KM,
     renderRadiusKm: MOON_RADIUS_KM,
     systemId: "earthSystem",
+  },
+  saturn: {
+    defaultFocusDistanceKm: 380_000,
+    id: "saturn",
+    label: "Saturn",
+    maxDistanceKm: CAMERA_MAX_DISTANCE_KM,
+    minDistanceKm: CAMERA_MIN_DISTANCE_KM,
+    parentId: null,
+    radiusKm: SATURN_EQUATORIAL_RADIUS,
+    renderRadiusKm: RING_OUTER_RADIUS,
+    systemId: "saturnSystem",
+  },
+  titan: {
+    defaultFocusDistanceKm: 18_000,
+    id: "titan",
+    label: "Titan",
+    maxDistanceKm: 600_000,
+    minDistanceKm: 7_000,
+    parentId: "saturn",
+    radiusKm: TITAN_RADIUS_KM,
+    renderRadiusKm: TITAN_RADIUS_KM,
+    systemId: "saturnSystem",
   },
 };
 

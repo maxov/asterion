@@ -1,0 +1,30 @@
+{
+  "source_id": "earth_clouds_svs",
+  "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/flat_earth03.jpg",
+  "source_page": "https://svs.gsfc.nasa.gov/3615/",
+  "license": "Public Domain (NASA imagery)",
+  "attribution": "NASA Scientific Visualization Studio / Greg Shirah",
+  "sha256_raw": "80c08eb0ae0d2f5daba9fdbeb51fa1123009b9d2141d961ec43873cde1ff9646",
+  "sha256_output": "748cec78a1746d7db09ed256291c2c544a122084b4e6c7fc3a11fab5e0a85ea8",
+  "processor": "earth_clouds",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T13:50:10.964863+00:00",
+  "input_dimensions": [
+    2048,
+    1024
+  ],
+  "output_dimensions": [
+    2048,
+    1024
+  ],
+  "output_format": "png",
+  "color_space": "sRGB",
+  "alpha_derivation": "Estimated cloud opacity from the positive brightening between matched NASA SVS 'with clouds' and 'no clouds' maps.",
+  "raw_file_hashes": {
+    "with_clouds": "80c08eb0ae0d2f5daba9fdbeb51fa1123009b9d2141d961ec43873cde1ff9646",
+    "no_clouds": "1ed70af0494a92b69a40e12feffd7b47ad4c92b3d70ad0987fee77212b51635c"
+  },
+  "extra_input_urls": {
+    "no_clouds": "https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/earth_noClouds.0330.jpg"
+  }
+}

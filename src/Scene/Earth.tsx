@@ -8,27 +8,32 @@ import {
 } from "react";
 import { useFrame } from "@react-three/fiber";
 import {
-  AdditiveBlending,
-  BackSide,
+  FrontSide,
+  Group,
   MeshStandardMaterial,
+  MeshPhysicalMaterial,
   Vector3,
 } from "three";
 import { EARTH_RADIUS_KM } from "../lib/constants.ts";
 import type { SolarSystemState } from "../lib/solarSystemState.ts";
 import { kmToUnits } from "../lib/units.ts";
 import {
+  EARTH_CLOUD_TEXTURE_PATH,
   configureSrgbTexture,
   EARTH_NIGHT_TEXTURE_PATH,
   earthDayTexturePathForMonth,
   earthTextureTimeline,
 } from "../lib/planetTextures.ts";
 import { usePreparedSharedTexture } from "../lib/useSharedTexture.ts";
+import { createEarthAtmosphereMaterial } from "../shaders/earthAtmosphereMaterial.ts";
 import { createEarthMaterial } from "../shaders/earthMaterial.ts";
 
 const EARTH_RADIUS = kmToUnits(EARTH_RADIUS_KM);
-const ATMOSPHERE_SCALE = 1.035;
+const ATMOSPHERE_SCALE = 1.02;
+const CLOUD_LAYER_SCALE = 1.003;
 const FALLBACK_COLOR = "#3f78c7";
-const NIGHT_LIGHTS_INTENSITY = 1.65;
+const NIGHT_LIGHTS_INTENSITY = 1.15;
+const CLOUD_DRIFT_PERIOD_MS = 96 * 3_600_000;
 
 type EarthProps = {
   localSunDirection: Vector3;
@@ -39,6 +44,7 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
   const timelineRef = useRef(earthTextureTimeline(simulationStateRef.current.dateMs));
   const [monthIndex, setMonthIndex] = useState(timelineRef.current.monthIndex);
   const monthIndexRef = useRef(monthIndex);
+  const cloudSpinRef = useRef<Group>(null);
   const currentDayPath = earthDayTexturePathForMonth(monthIndex);
   const nextDayPath = earthDayTexturePathForMonth((monthIndex + 1) % 12);
 
@@ -57,6 +63,11 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     "earth-night-2016",
     configureSrgbTexture,
   );
+  const { texture: cloudTexture, error: cloudError } = usePreparedSharedTexture(
+    EARTH_CLOUD_TEXTURE_PATH,
+    "earth-clouds-svs",
+    configureSrgbTexture,
+  );
 
   const fallbackMaterial = useMemo(
     () =>
@@ -65,6 +76,25 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
         roughness: 0.9,
         metalness: 0,
       }),
+    [],
+  );
+  const cloudMaterial = useMemo(() => {
+    if (!cloudTexture) return null;
+
+    return new MeshPhysicalMaterial({
+      alphaMap: cloudTexture,
+      map: cloudTexture,
+      transparent: true,
+      opacity: 0.62,
+      alphaTest: 0.04,
+      depthWrite: false,
+      side: FrontSide,
+      roughness: 0.92,
+      metalness: 0,
+    });
+  }, [cloudTexture]);
+  const atmosphereMaterialBundle = useMemo(
+    () => createEarthAtmosphereMaterial(),
     [],
   );
 
@@ -90,6 +120,16 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       earthMaterialBundle?.material.dispose();
     };
   }, [earthMaterialBundle]);
+  useEffect(() => {
+    return () => {
+      cloudMaterial?.dispose();
+    };
+  }, [cloudMaterial]);
+  useEffect(() => {
+    return () => {
+      atmosphereMaterialBundle.material.dispose();
+    };
+  }, [atmosphereMaterialBundle]);
 
   useEffect(() => {
     if (dayError) {
@@ -109,9 +149,15 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       );
     }
   }, [nightError]);
+  useEffect(() => {
+    if (cloudError) {
+      console.warn(`Earth: failed to load ${EARTH_CLOUD_TEXTURE_PATH}`, cloudError);
+    }
+  }, [cloudError]);
 
   useFrame(() => {
-    const timeline = earthTextureTimeline(simulationStateRef.current.dateMs);
+    const simulationDateMs = simulationStateRef.current.dateMs;
+    const timeline = earthTextureTimeline(simulationDateMs);
     timelineRef.current = timeline;
 
     if (timeline.monthIndex !== monthIndexRef.current) {
@@ -127,24 +173,39 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     earthMaterialBundle.sunDirectionUniform.value
       .copy(localSunDirection)
       .normalize();
+    atmosphereMaterialBundle.sunDirectionUniform.value
+      .copy(localSunDirection)
+      .normalize();
+
+    if (cloudSpinRef.current) {
+      const cloudPhase =
+        ((simulationDateMs % CLOUD_DRIFT_PERIOD_MS) + CLOUD_DRIFT_PERIOD_MS) %
+        CLOUD_DRIFT_PERIOD_MS;
+      cloudSpinRef.current.rotation.y =
+        (cloudPhase / CLOUD_DRIFT_PERIOD_MS) * Math.PI * 2;
+    }
   });
 
   return (
     <>
       <mesh material={earthMaterialBundle?.material ?? fallbackMaterial}>
-        <sphereGeometry args={[EARTH_RADIUS, 64, 32]} />
+        <sphereGeometry args={[EARTH_RADIUS, 128, 64]} />
       </mesh>
-      <mesh scale={[ATMOSPHERE_SCALE, ATMOSPHERE_SCALE, ATMOSPHERE_SCALE]}>
-        <sphereGeometry args={[EARTH_RADIUS, 48, 24]} />
-        <meshBasicMaterial
-          color="#86c8ff"
-          transparent
-          opacity={0.22}
-          blending={AdditiveBlending}
-          side={BackSide}
-          depthWrite={false}
-          toneMapped={false}
-        />
+      {cloudMaterial ? (
+        <group ref={cloudSpinRef}>
+          <mesh
+            material={cloudMaterial}
+            scale={[CLOUD_LAYER_SCALE, CLOUD_LAYER_SCALE, CLOUD_LAYER_SCALE]}
+          >
+            <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
+          </mesh>
+        </group>
+      ) : null}
+      <mesh
+        material={atmosphereMaterialBundle.material}
+        scale={[ATMOSPHERE_SCALE, ATMOSPHERE_SCALE, ATMOSPHERE_SCALE]}
+      >
+        <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
       </mesh>
     </>
   );

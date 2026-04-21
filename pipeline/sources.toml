@@ -269,6 +269,23 @@ max_width = 3600
 output = "earth_night_2016.jpg"
 
 [[source]]
+id = "earth_clouds_svs"
+description = "Earth cloud layer derived from paired NASA SVS equirectangular maps (2048x1024)"
+url = "https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/flat_earth03.jpg"
+sha256 = "80c08eb0ae0d2f5daba9fdbeb51fa1123009b9d2141d961ec43873cde1ff9646"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Scientific Visualization Studio / Greg Shirah"
+source_page = "https://svs.gsfc.nasa.gov/3615/"
+processor = "earth_clouds"
+max_width = 2048
+output = "earth_clouds.png"
+
+[[source.extra_files]]
+name = "no_clouds"
+url = "https://svs.gsfc.nasa.gov/vis/a000000/a003600/a003615/earth_noClouds.0330.jpg"
+sha256 = "1ed70af0494a92b69a40e12feffd7b47ad4c92b3d70ad0987fee77212b51635c"
+
+[[source]]
 id = "moon_color_lroc_2k"
 description = "Moon color map from NASA SVS CGI Moon Kit (2048x1024)"
 url = "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg"
@@ -279,3 +296,15 @@ source_page = "https://svs.gsfc.nasa.gov/4720/"
 processor = "saturn_body"
 max_width = 2048
 output = "moon_albedo.jpg"
+
+[[source]]
+id = "moon_height_lola_16ppd"
+description = "Moon displacement map from NASA SVS CGI Moon Kit (LOLA, 16 ppd, uint16)"
+url = "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_16_uint.tif"
+sha256 = "45a2b32d56e81ed30db07fead8abc842b249b6511219d9ca2c53f81bc2dc5d62"
+license = "Public Domain (NASA imagery)"
+attribution = "NASA Scientific Visualization Studio / LOLA Science Team"
+source_page = "https://svs.gsfc.nasa.gov/4720/"
+processor = "moon_height"
+max_width = 4096
+output = "moon_height.png"

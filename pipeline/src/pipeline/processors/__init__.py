@@ -11,6 +11,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Callable
 
+from pipeline.processors.earth_clouds import earth_clouds
+from pipeline.processors.moon_height import moon_height
 from pipeline.processors.passthrough import passthrough
 from pipeline.processors.saturn_body import saturn_body
 from pipeline.processors.saturn_rings import saturn_rings
@@ -21,6 +23,8 @@ from pipeline.sources import Source
 ProcessorFn = Callable[[Path, Path, Source], tuple[Path, dict[str, Any]]]
 
 PROCESSORS: dict[str, ProcessorFn] = {
+    "earth_clouds": earth_clouds,
+    "moon_height": moon_height,
     "passthrough": passthrough,
     "saturn_body": saturn_body,
     "saturn_rings": saturn_rings,

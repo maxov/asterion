@@ -1,0 +1,35 @@
+{
+  "source_id": "moon_height_lola_16ppd",
+  "source_url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/ldem_16_uint.tif",
+  "source_page": "https://svs.gsfc.nasa.gov/4720/",
+  "license": "Public Domain (NASA imagery)",
+  "attribution": "NASA Scientific Visualization Studio / LOLA Science Team",
+  "sha256_raw": "45a2b32d56e81ed30db07fead8abc842b249b6511219d9ca2c53f81bc2dc5d62",
+  "sha256_output": "c862db8c1f3f86e48cddb27a5e7d85a809e327f8cfbf28262d441224d2455a9f",
+  "processor": "moon_height",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T12:53:18.120564+00:00",
+  "input_dimensions": [
+    5760,
+    2880
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "png",
+  "color_space": "data",
+  "source_encoding": "uint16 half-meters with +10 km offset",
+  "output_encoding": "8-bit linear grayscale preserving uint16 range",
+  "height_reference_radius_m": 1737400.0,
+  "displacement_bias_m": -10000.0,
+  "displacement_scale_m": 32767.5,
+  "source_value_range": [
+    1913,
+    41266
+  ],
+  "height_range_m": [
+    -9043.5,
+    10633.0
+  ]
+}

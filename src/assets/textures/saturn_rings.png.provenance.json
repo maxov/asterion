@@ -8,7 +8,7 @@
   "sha256_output": "72c462cb12d803c0aa64d169b7f06dd4510b9062cf8e7ac285109e6b35f0db0b",
   "processor": "saturn_rings_bjj",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T07:47:13.422373+00:00",
+  "processed_at": "2026-04-21T12:25:48.146393+00:00",
   "inner_radius_km": 74510,
   "outer_radius_km": 140390,
   "sample_count": 13177,

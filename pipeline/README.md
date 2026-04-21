@@ -159,6 +159,8 @@ so the frontend works without running the pipeline.
 
 Processors transform raw downloads into final textures. Currently available:
 
+- **`moon_height`** — converts LOLA-derived Moon displacement TIFFs into browser-friendly linear grayscale PNG height maps
+- **`earth_clouds`** — derives an RGBA Earth cloud layer from paired NASA SVS equirectangular maps
 - **`passthrough`** — copies the file, stripping EXIF/image metadata
 - **`saturn_body`** — validates 2:1 equirectangular maps, converts to RGB, optional resize, outputs JPG/PNG
 - **`saturn_rings`** — combines ring textures into a 1px-high RGBA PNG strip (supports `combined_rgba` and `color_plus_transparency` input modes)

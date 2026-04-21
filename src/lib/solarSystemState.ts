@@ -65,6 +65,7 @@ export function createSolarSystemState(
 ): SolarSystemState {
   return {
     bodies: {
+      sun: createBodySimulationState("sun"),
       earth: createBodySimulationState("earth"),
       moon: createBodySimulationState("moon"),
       saturn: createBodySimulationState("saturn"),
@@ -82,6 +83,7 @@ export function updateSolarSystemState(
   focusBodyId: BodyId,
 ) {
   const { bodies } = state;
+  const sun = bodies.sun;
   const saturn = bodies.saturn;
   const titan = bodies.titan;
   const earth = bodies.earth;
@@ -89,6 +91,9 @@ export function updateSolarSystemState(
 
   state.dateMs = dateMs;
   state.focusBodyId = focusBodyId;
+
+  sun.physicalPositionKm.set(0, 0, 0);
+  sun.positionRelativeToParentKm.set(0, 0, 0);
 
   saturnHeliocentricPositionKm(dateMs, saturn.physicalPositionKm);
   saturn.positionRelativeToParentKm.copy(saturn.physicalPositionKm);
@@ -110,6 +115,7 @@ export function updateSolarSystemState(
     .copy(earth.physicalPositionKm)
     .add(moon.positionRelativeToParentKm);
 
+  updateSunDirection(sun);
   updateSunDirection(saturn);
   updateSunDirection(titan);
   updateSunDirection(earth);

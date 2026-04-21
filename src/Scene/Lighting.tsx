@@ -15,10 +15,19 @@ type LightingProps = {
 
 export function Lighting({ direction }: LightingProps) {
   const discRef = useRef<Mesh>(null);
+  const discDirectionRef = useRef(new Vector3());
   const discPositionRef = useRef(new Vector3());
 
   useFrame(() => {
-    discPositionRef.current.copy(direction).multiplyScalar(SUN_DISC_DISTANCE);
+    discDirectionRef.current.copy(direction);
+    if (discDirectionRef.current.lengthSq() <= 1e-8) {
+      discDirectionRef.current.set(1, 0, 0);
+    } else {
+      discDirectionRef.current.normalize();
+    }
+    discPositionRef.current
+      .copy(discDirectionRef.current)
+      .multiplyScalar(SUN_DISC_DISTANCE);
 
     discRef.current?.position.copy(discPositionRef.current);
   });

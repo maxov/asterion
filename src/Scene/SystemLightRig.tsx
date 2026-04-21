@@ -29,6 +29,7 @@ export function SystemLightRig({
   const directionalRef = useRef<DirectionalLight>(null);
   const ambientRef = useRef<AmbientLight>(null);
   const lightTarget = useMemo(() => new Object3D(), []);
+  const lightDirectionRef = useRef(new Vector3());
   const lightPositionRef = useRef(new Vector3());
   const targetPositionRef = useRef(new Vector3());
 
@@ -50,8 +51,14 @@ export function SystemLightRig({
 
     targetRef.current.getWorldPosition(targetPositionRef.current);
     lightTarget.position.copy(targetPositionRef.current);
+    lightDirectionRef.current.copy(direction);
+    if (lightDirectionRef.current.lengthSq() <= 1e-8) {
+      lightDirectionRef.current.set(1, 0, 0);
+    } else {
+      lightDirectionRef.current.normalize();
+    }
     lightPositionRef.current
-      .copy(direction)
+      .copy(lightDirectionRef.current)
       .multiplyScalar(LIGHT_DISTANCE)
       .add(targetPositionRef.current);
 

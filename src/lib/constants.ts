@@ -1,6 +1,7 @@
 // Saturn body (km)
 export const SATURN_EQUATORIAL_RADIUS = 60_268;
 export const SATURN_POLAR_RADIUS = 54_364;
+export const SUN_RADIUS_KM = 695_700;
 
 // Earth-Moon system (km)
 export const EARTH_RADIUS_KM = 6_378.137;
