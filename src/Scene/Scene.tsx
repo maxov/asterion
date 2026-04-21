@@ -1,5 +1,5 @@
-import { useRef, useEffect } from 'react'
-import { Color, MathUtils } from 'three'
+import { useRef, useEffect, useMemo } from 'react'
+import { Color, MathUtils, Vector3 } from 'three'
 import { useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useControls } from 'leva'
@@ -16,6 +16,7 @@ import {
   DEFAULT_BLOOM_STRENGTH,
   DEFAULT_BLOOM_RADIUS,
   DEFAULT_EXPOSURE,
+  SUN_INTENSITY,
 } from '../lib/constants.ts'
 import { kmToUnits } from '../lib/units.ts'
 
@@ -165,6 +166,27 @@ export function Scene() {
     texturedRings: { value: true, label: 'Ring Texture' },
     debugCanary: { value: false, label: 'Canary Cube' },
   })
+  const { timeOfYear, sunIntensity } = useControls('Sun', {
+    timeOfYear: {
+      value: 200,
+      min: 0,
+      max: 360,
+      step: 1,
+      label: 'Time of Year (°)',
+    },
+    sunIntensity: {
+      value: SUN_INTENSITY,
+      min: 0,
+      max: 10,
+      step: 0.1,
+      label: 'Intensity',
+    },
+  })
+
+  const sunDirection = useMemo(() => {
+    const angle = (timeOfYear * Math.PI) / 180
+    return new Vector3(Math.cos(angle), 0, Math.sin(angle))
+  }, [timeOfYear])
 
   return (
     <>
@@ -180,12 +202,18 @@ export function Scene() {
       <group rotation={[0, 0, AXIAL_TILT_RAD]}>
         <Saturn textured={texturedSaturn} />
         <Atmosphere />
-        <Rings textured={texturedRings} />
+        <Rings
+          textured={texturedRings}
+          sunDirection={sunDirection}
+        />
         {debugCanary ? <DebugCanary /> : null}
       </group>
 
       <Stars />
-      <Lighting />
+      <Lighting
+        direction={sunDirection}
+        intensity={sunIntensity}
+      />
       <Effects />
     </>
   )

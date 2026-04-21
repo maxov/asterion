@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
+import { useFrame, useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
 import {
   BackSide,
@@ -10,9 +11,13 @@ import {
   Float32BufferAttribute,
   FrontSide,
   LinearFilter,
+  MathUtils,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  Quaternion,
   SRGBColorSpace,
+  Vector3,
+  type Group,
   type Side,
   type Texture,
 } from 'three'
@@ -29,6 +34,25 @@ const MAX_TEXTURE_WIDTH = 4096
 const EXPANDED_TEXTURE_HEIGHT = 16
 const TEXTURE_V = 0.5
 const FALLBACK_COLOR = new Color(0.83, 0.77, 0.63)
+const PHASE_EPSILON = 0.002
+const UNLIT_BLEND_EPSILON = 0.01
+const UNLIT_BLEND_START = 0
+const UNLIT_BLEND_END = 0.75
+const UNLIT_BLEND_POWER = 1.8
+
+type RingTextureBundle = {
+  alpha: Float32Array
+  backscatter: Float32Array
+  context: CanvasRenderingContext2D
+  forwardscatter: Float32Array
+  imageData: ImageData
+  texture: CanvasTexture
+  tintBlue: Float32Array
+  tintGreen: Float32Array
+  tintRed: Float32Array
+  unlit: Float32Array
+  width: number
+}
 
 function createRingGeometry(inner: number, outer: number, segments: number) {
   const geometry = new BufferGeometry()
@@ -134,12 +158,12 @@ function applyWarmTint(red: number, green: number, blue: number, warmth: number)
   ] as const
 }
 
-function createExpandedRingTexture(
+function createRingTextureBundle(
   colorTexture: Texture,
   scatteringTexture: Texture,
   chromaGain: number,
   warmth: number,
-) {
+): RingTextureBundle | null {
   const colorImage = colorTexture.image as CanvasImageSource & { width?: number; height?: number } | undefined
   const scatteringImage = scatteringTexture.image as CanvasImageSource & { width?: number; height?: number } | undefined
 
@@ -157,40 +181,35 @@ function createExpandedRingTexture(
   const scatteringRow = drawScaledRow(scatteringImage, scatteringWidth, scatteringHeight, width)
   if (!colorRow || !scatteringRow) return null
 
-  const outputData = new Uint8ClampedArray(width * EXPANDED_TEXTURE_HEIGHT * 4)
+  const tintRed = new Float32Array(width)
+  const tintGreen = new Float32Array(width)
+  const tintBlue = new Float32Array(width)
+  const backscatter = new Float32Array(width)
+  const forwardscatter = new Float32Array(width)
+  const unlit = new Float32Array(width)
+  const alpha = new Float32Array(width)
 
   for (let x = 0; x < width; x += 1) {
     const src = x * 4
-    const brightness = scatteringRow.data[src] / 255
-    const alpha = 1 - scatteringRow.data[src + 3] / 255
-    const [tintRed, tintGreen, tintBlue] = extractTint(
+    backscatter[x] = scatteringRow.data[src] / 255
+    forwardscatter[x] = scatteringRow.data[src + 1] / 255
+    unlit[x] = scatteringRow.data[src + 2] / 255
+    alpha[x] = 1 - scatteringRow.data[src + 3] / 255
+    const [tintSampleRed, tintSampleGreen, tintSampleBlue] = extractTint(
       colorRow.data[src] / 255,
       colorRow.data[src + 1] / 255,
       colorRow.data[src + 2] / 255,
       chromaGain,
     )
     const [baseRed, baseGreen, baseBlue] = applyWarmTint(
-      tintRed,
-      tintGreen,
-      tintBlue,
+      tintSampleRed,
+      tintSampleGreen,
+      tintSampleBlue,
       warmth,
     )
-    const linearRed = baseRed * brightness * alpha
-    const linearGreen = baseGreen * brightness * alpha
-    const linearBlue = baseBlue * brightness * alpha
-
-    const red = Math.round(srgbEncode(linearRed) * 255)
-    const green = Math.round(srgbEncode(linearGreen) * 255)
-    const blue = Math.round(srgbEncode(linearBlue) * 255)
-    const encodedAlpha = Math.round(alpha * 255)
-
-    for (let y = 0; y < EXPANDED_TEXTURE_HEIGHT; y += 1) {
-      const dst = (y * width + x) * 4
-      outputData[dst] = red
-      outputData[dst + 1] = green
-      outputData[dst + 2] = blue
-      outputData[dst + 3] = encodedAlpha
-    }
+    tintRed[x] = baseRed
+    tintGreen[x] = baseGreen
+    tintBlue[x] = baseBlue
   }
 
   const canvas = document.createElement('canvas')
@@ -200,12 +219,76 @@ function createExpandedRingTexture(
   const context = canvas.getContext('2d')
   if (!context) return null
 
-  const imageData = new ImageData(outputData, width, EXPANDED_TEXTURE_HEIGHT)
-  context.putImageData(imageData, 0, 0)
-
   const expanded = new CanvasTexture(canvas)
   configureRingTexture(expanded)
-  return expanded
+  const bundle = {
+    alpha,
+    backscatter,
+    context,
+    forwardscatter,
+    imageData: context.createImageData(width, EXPANDED_TEXTURE_HEIGHT),
+    texture: expanded,
+    tintBlue,
+    tintGreen,
+    tintRed,
+    unlit,
+    width,
+  }
+
+  renderRingTexture(bundle, 0, 0)
+  return bundle
+}
+
+function renderRingTexture(
+  bundle: RingTextureBundle,
+  phaseMix: number,
+  unlitMix: number,
+) {
+  const clampedPhase = MathUtils.smootherstep(
+    MathUtils.clamp(phaseMix, 0, 1),
+    0,
+    1,
+  )
+  const clampedUnlitMix = MathUtils.smootherstep(
+    MathUtils.clamp(unlitMix, 0, 1),
+    0,
+    1,
+  )
+  const { data } = bundle.imageData
+
+  for (let x = 0; x < bundle.width; x += 1) {
+    const litBrightness = MathUtils.lerp(
+      bundle.backscatter[x],
+      bundle.forwardscatter[x],
+      clampedPhase,
+    )
+    const brightness = MathUtils.lerp(litBrightness, bundle.unlit[x], clampedUnlitMix)
+    const alpha = bundle.alpha[x]
+    const red = Math.round(srgbEncode(bundle.tintRed[x] * brightness * alpha) * 255)
+    const green = Math.round(srgbEncode(bundle.tintGreen[x] * brightness * alpha) * 255)
+    const blue = Math.round(srgbEncode(bundle.tintBlue[x] * brightness * alpha) * 255)
+    const encodedAlpha = Math.round(alpha * 255)
+
+    for (let y = 0; y < EXPANDED_TEXTURE_HEIGHT; y += 1) {
+      const dst = (y * bundle.width + x) * 4
+      data[dst] = red
+      data[dst + 1] = green
+      data[dst + 2] = blue
+      data[dst + 3] = encodedAlpha
+    }
+  }
+
+  bundle.context.putImageData(bundle.imageData, 0, 0)
+  bundle.texture.needsUpdate = true
+}
+
+function computeUnlitMix(viewPlaneDot: number, sunPlaneDot: number) {
+  if (viewPlaneDot === 0 || sunPlaneDot === 0) return 0
+  if (Math.sign(viewPlaneDot) === Math.sign(sunPlaneDot)) return 0
+
+  const separation = Math.min(Math.abs(viewPlaneDot), Math.abs(sunPlaneDot))
+  const baseMix = MathUtils.smootherstep(separation, UNLIT_BLEND_START, UNLIT_BLEND_END)
+  return Math.pow(baseMix, UNLIT_BLEND_POWER)
 }
 
 function createTexturedMaterial(
@@ -225,7 +308,19 @@ function createTexturedMaterial(
   return material
 }
 
-export function Rings({ textured = true }: { textured?: boolean }) {
+type RingsProps = {
+  sunDirection: Vector3
+  textured?: boolean
+}
+
+export function Rings({ sunDirection, textured = true }: RingsProps) {
+  const { camera } = useThree()
+  const ringGroupRef = useRef<Group>(null)
+  const normalRef = useRef(new Vector3())
+  const quaternionRef = useRef(new Quaternion())
+  const viewDirRef = useRef(new Vector3())
+  const lastPhaseRef = useRef(Number.NaN)
+  const lastUnlitMixRef = useRef(Number.NaN)
   const { texture: colorTexture, error: colorError } = usePreparedSharedTexture(
     COLOR_TEXTURE_PATH,
     'saturn-rings',
@@ -257,22 +352,22 @@ export function Rings({ textured = true }: { textured?: boolean }) {
     [opacity],
   )
 
-  const expandedTexture = useMemo(() => {
+  const textureBundle = useMemo(() => {
     if (!colorTexture || !scatteringTexture) return null
-    return createExpandedRingTexture(colorTexture, scatteringTexture, chromaGain, warmth)
+    return createRingTextureBundle(colorTexture, scatteringTexture, chromaGain, warmth)
   }, [colorTexture, scatteringTexture, chromaGain, warmth])
 
   const materials = useMemo(() => {
-    if (!textured || !expandedTexture) return null
+    if (!textured || !textureBundle) return null
     return {
-      back: createTexturedMaterial(expandedTexture, BackSide, opacity),
-      front: createTexturedMaterial(expandedTexture, FrontSide, opacity),
+      back: createTexturedMaterial(textureBundle.texture, BackSide, opacity),
+      front: createTexturedMaterial(textureBundle.texture, FrontSide, opacity),
     }
-  }, [textured, expandedTexture, opacity])
+  }, [textured, textureBundle, opacity])
 
   useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => () => fallback.dispose(), [fallback])
-  useEffect(() => () => expandedTexture?.dispose(), [expandedTexture])
+  useEffect(() => () => textureBundle?.texture.dispose(), [textureBundle])
   useEffect(
     () => () => {
       materials?.back.dispose()
@@ -284,6 +379,34 @@ export function Rings({ textured = true }: { textured?: boolean }) {
     if (colorError) console.warn(`Rings: failed to load ${COLOR_TEXTURE_PATH}`, colorError)
     if (scatteringError) console.warn(`Rings: failed to load ${SCATTERING_TEXTURE_PATH}`, scatteringError)
   }, [colorError, scatteringError])
+  useEffect(() => {
+    lastPhaseRef.current = Number.NaN
+    lastUnlitMixRef.current = Number.NaN
+  }, [textureBundle])
+
+  useFrame(() => {
+    if (!textured || !textureBundle || !ringGroupRef.current) return
+
+    ringGroupRef.current.getWorldQuaternion(quaternionRef.current)
+    normalRef.current.set(0, 0, 1).applyQuaternion(quaternionRef.current).normalize()
+    viewDirRef.current.copy(camera.position).normalize()
+
+    const phase = (1 - MathUtils.clamp(viewDirRef.current.dot(sunDirection), -1, 1)) / 2
+    const viewPlaneDot = viewDirRef.current.dot(normalRef.current)
+    const sunPlaneDot = sunDirection.dot(normalRef.current)
+    const unlitMix = computeUnlitMix(viewPlaneDot, sunPlaneDot)
+
+    if (
+      Math.abs(phase - lastPhaseRef.current) < PHASE_EPSILON
+      && Math.abs(unlitMix - lastUnlitMixRef.current) < UNLIT_BLEND_EPSILON
+    ) {
+      return
+    }
+
+    renderRingTexture(textureBundle, phase, unlitMix)
+    lastPhaseRef.current = phase
+    lastUnlitMixRef.current = unlitMix
+  })
 
   if (!materials) {
     return (
@@ -297,7 +420,10 @@ export function Rings({ textured = true }: { textured?: boolean }) {
   }
 
   return (
-    <group rotation={[-Math.PI / 2, 0, 0]}>
+    <group
+      ref={ringGroupRef}
+      rotation={[-Math.PI / 2, 0, 0]}
+    >
       <mesh
         renderOrder={1}
         geometry={geometry}
