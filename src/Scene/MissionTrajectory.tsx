@@ -20,11 +20,12 @@ import {
   MathUtils,
   MeshBasicMaterial,
   Object3D,
+  SphereGeometry,
   Vector3,
   type ColorRepresentation,
   type Material,
 } from "three";
-import { type BodyId } from "../lib/bodies.ts";
+import { BODY_DEFINITIONS, type BodyId } from "../lib/bodies.ts";
 import type { MissionRegistryEntry, MissionVisual } from "../lib/missions.ts";
 import { MISSION_REGISTRY } from "../lib/missions.ts";
 import {
@@ -60,7 +61,6 @@ type LineChunk = {
   points: [number, number, number][];
 };
 
-const HEAD_POSITION = new Vector3();
 const ZERO_POSITION: [number, number, number] = [0, 0, 0];
 const MODEL_BOUNDS = new Box3();
 const MODEL_SIZE = new Vector3();
@@ -135,13 +135,17 @@ function buildLineChunks(
 function TrajectoryLine({
   chunkSize = 0,
   color,
+  depthTest = true,
   opacity,
   points,
+  renderOrder = 0,
 }: {
   chunkSize?: number;
   color: ColorRepresentation;
+  depthTest?: boolean;
   opacity: number;
   points: readonly [number, number, number][];
+  renderOrder?: number;
 }) {
   const chunks = useMemo(
     () => buildLineChunks(points, chunkSize),
@@ -156,9 +160,11 @@ function TrajectoryLine({
         <TrajectoryLineChunk
           key={chunk.key}
           color={color}
+          depthTest={depthTest}
           opacity={opacity}
           origin={chunk.origin}
           points={chunk.points}
+          renderOrder={renderOrder}
         />
       ))}
     </group>
@@ -167,39 +173,37 @@ function TrajectoryLine({
 
 function TrajectoryLineChunk({
   color,
+  depthTest,
   opacity,
   origin,
   points,
+  renderOrder,
 }: {
   color: ColorRepresentation;
+  depthTest: boolean;
   opacity: number;
   origin: [number, number, number];
   points: readonly [number, number, number][];
+  renderOrder: number;
 }) {
   const geometry = useMemo(() => {
-    const nextGeometry = new BufferGeometry();
+    const geo = new BufferGeometry();
     const positions = new Float32Array(points.length * 3);
-
-    for (let index = 0; index < points.length; index += 1) {
-      const point = points[index];
-      const offset = index * 3;
-      positions[offset] = point[0];
-      positions[offset + 1] = point[1];
-      positions[offset + 2] = point[2];
+    for (let i = 0; i < points.length; i++) {
+      positions[i * 3] = points[i][0];
+      positions[i * 3 + 1] = points[i][1];
+      positions[i * 3 + 2] = points[i][2];
     }
-
-    nextGeometry.setAttribute(
-      "position",
-      new Float32BufferAttribute(positions, 3),
-    );
-    nextGeometry.computeBoundingSphere();
-    return nextGeometry;
+    geo.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    geo.computeBoundingSphere();
+    return geo;
   }, [points]);
 
   const material = useMemo(
     () =>
       new LineBasicMaterial({
         color,
+        depthTest,
         opacity,
         transparent: true,
         depthWrite: false,
@@ -209,10 +213,11 @@ function TrajectoryLineChunk({
   );
 
   const line = useMemo(() => {
-    const nextLine = new ThreeLine(geometry, material);
-    nextLine.frustumCulled = false;
-    return nextLine;
-  }, [geometry, material]);
+    const l = new ThreeLine(geometry, material);
+    l.frustumCulled = false;
+    l.renderOrder = renderOrder;
+    return l;
+  }, [geometry, material, renderOrder]);
 
   useEffect(() => {
     return () => {
@@ -234,12 +239,16 @@ const FADE_SEGMENTS = 12;
 
 function FadingStreakLine({
   color,
+  depthTest = true,
   opacity,
   points,
+  renderOrder = 0,
 }: {
   color: ColorRepresentation;
+  depthTest?: boolean;
   opacity: number;
   points: readonly [number, number, number][];
+  renderOrder?: number;
 }) {
   const segments = useMemo(() => {
     if (points.length < 2) return [];
@@ -251,10 +260,8 @@ function FadingStreakLine({
       const start = Math.min(i * segLen, totalPoints - 1);
       const end = Math.min((i + 1) * segLen, totalPoints - 1);
       if (end <= start) continue;
-      // Include one overlapping point for continuity
       const slice = points.slice(start, end + 1) as [number, number, number][];
       if (slice.length < 2) continue;
-      // t goes from 0 (tail) to 1 (head)
       const t = (i + 1) / FADE_SEGMENTS;
       const fade = t * t * t;
       result.push({ points: slice, opacity: opacity * fade });
@@ -270,8 +277,101 @@ function FadingStreakLine({
         <TrajectoryLine
           key={i}
           color={color}
+          depthTest={depthTest}
           opacity={seg.opacity}
           points={seg.points}
+          renderOrder={renderOrder}
+        />
+      ))}
+    </group>
+  );
+}
+
+function sampleTrajectoryPoints(
+  points: readonly [number, number, number][],
+  maxPoints: number,
+) {
+  if (points.length <= maxPoints) {
+    return points.map((point) => new Vector3(point[0], point[1], point[2]));
+  }
+
+  const sampled: Vector3[] = [];
+  const lastIndex = points.length - 1;
+  const step = lastIndex / (maxPoints - 1);
+
+  for (let i = 0; i < maxPoints; i += 1) {
+    const index = Math.min(lastIndex, Math.round(i * step));
+    const point = points[index];
+    const previous = sampled.at(-1);
+    if (
+      previous &&
+      previous.x === point[0] &&
+      previous.y === point[1] &&
+      previous.z === point[2]
+    ) {
+      continue;
+    }
+    sampled.push(new Vector3(point[0], point[1], point[2]));
+  }
+
+  return sampled;
+}
+
+function TrajectoryDots({
+  color,
+  depthTest = true,
+  maxPoints = 256,
+  opacity,
+  points,
+  radius,
+  renderOrder = 0,
+}: {
+  color: ColorRepresentation;
+  depthTest?: boolean;
+  maxPoints?: number;
+  opacity: number;
+  points: readonly [number, number, number][];
+  radius: number;
+  renderOrder?: number;
+}) {
+  const sampledPoints = useMemo(
+    () => sampleTrajectoryPoints(points, maxPoints),
+    [maxPoints, points],
+  );
+  const geometry = useMemo(() => new SphereGeometry(radius, 8, 8), [radius]);
+
+  const material = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color,
+        depthTest,
+        depthWrite: false,
+        opacity,
+        toneMapped: false,
+        transparent: opacity < 1,
+      }),
+    [color, depthTest, opacity],
+  );
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [geometry, material]);
+
+  if (sampledPoints.length === 0) return null;
+
+  return (
+    <group>
+      {sampledPoints.map((point, index) => (
+        <mesh
+          key={index}
+          frustumCulled={false}
+          geometry={geometry}
+          material={material}
+          position={[point.x, point.y, point.z]}
+          renderOrder={renderOrder}
         />
       ))}
     </group>
@@ -366,6 +466,7 @@ function MissionTrajectory({
   const [progressSeconds, setProgressSeconds] = useState(0);
   const progressRef = useRef(0);
   const missionRootRef = useRef<Group>(null);
+  const missionPositionKmRef = useRef(new Vector3());
   const { asset: modelAsset, error: modelError } = useMissionModelAsset(
     asset?.visual?.model_asset_path,
   );
@@ -399,12 +500,14 @@ function MissionTrajectory({
   const lineStyle = asset ? missionLineStyle(asset) : null;
   const streakStyle = asset ? missionStreakStyle(asset) : null;
   const headStyle = asset ? missionHeadStyle(asset) : null;
-  const focusLocatorRadius =
-    asset?.visual?.model_longest_dimension_m !== undefined
-      ? kmToUnits(
-          Math.max(asset.visual.model_longest_dimension_m * 0.00075, 0.003),
-        )
-      : kmToUnits(0.003);
+  const focusLocatorRadius = kmToUnits(
+    Math.max(
+      0.00002,
+      Math.min(BODY_DEFINITIONS[missionId].minDistanceKm * 0.25, 0.000125),
+    ),
+  );
+  const focusedPathDotRadius = Math.max(kmToUnits(0.5), focusLocatorRadius * 4_000);
+  const focusedStreakDotRadius = focusedPathDotRadius * 1.5;
   const model = useMemo(
     () =>
       asset?.visual && modelAsset
@@ -415,6 +518,7 @@ function MissionTrajectory({
 
   useFrame(() => {
     if (!asset) {
+      missionPositionKmRef.current.set(0, 0, 0);
       focusOffsetKmRef?.current.set(0, 0, 0);
       return;
     }
@@ -429,13 +533,21 @@ function MissionTrajectory({
         ),
     );
 
-    positionAtMissionTime(samples, nextProgress, HEAD_POSITION);
+    positionAtMissionTime(samples, nextProgress, missionPositionKmRef.current);
 
     if (missionFocused) {
-      focusOffsetKmRef?.current.copy(HEAD_POSITION);
+      focusOffsetKmRef?.current.copy(missionPositionKmRef.current);
     } else {
       focusOffsetKmRef?.current.set(0, 0, 0);
     }
+
+    const minProgressDelta = missionFocused ? 0 : 5;
+    if (Math.abs(progressRef.current - nextProgress) < minProgressDelta) return;
+    progressRef.current = nextProgress;
+    setProgressSeconds(nextProgress);
+  }, -2);
+
+  useFrame(() => {
     MISSION_ROOT_POSITION.copy(systemOriginKmRef.current);
     missionRootRef.current?.position.set(
       kmToUnits(MISSION_ROOT_POSITION.x),
@@ -443,16 +555,11 @@ function MissionTrajectory({
       kmToUnits(MISSION_ROOT_POSITION.z),
     );
     anchorRef?.current?.position.set(
-      kmToUnits(HEAD_POSITION.x),
-      kmToUnits(HEAD_POSITION.y),
-      kmToUnits(HEAD_POSITION.z),
+      kmToUnits(missionPositionKmRef.current.x),
+      kmToUnits(missionPositionKmRef.current.y),
+      kmToUnits(missionPositionKmRef.current.z),
     );
-
-    const minProgressDelta = missionFocused ? 0 : 5;
-    if (Math.abs(progressRef.current - nextProgress) < minProgressDelta) return;
-    progressRef.current = nextProgress;
-    setProgressSeconds(nextProgress);
-  }, -2);
+  }, -0.5);
 
   const streakPoints = useMemo(() => {
     if (!asset || samples.length === 0) return [];
@@ -472,31 +579,57 @@ function MissionTrajectory({
       !!modelError);
 
   return (
-    <group ref={missionRootRef}>
-      {asset && samples.length >= 2 && lineStyle ? (
-        <TrajectoryLine
-          chunkSize={64}
-          color={lineStyle.color}
-          opacity={lineStyle.opacity}
-          points={fullPathPoints}
-        />
+      <group ref={missionRootRef}>
+        {asset && samples.length >= 2 && lineStyle ? (
+          missionFocused ? (
+            <TrajectoryDots
+              color={lineStyle.color}
+              depthTest={false}
+              maxPoints={320}
+              opacity={lineStyle.opacity}
+              points={fullPathPoints}
+              radius={focusedPathDotRadius}
+              renderOrder={8}
+            />
+          ) : (
+            <TrajectoryLine
+              chunkSize={64}
+              color={lineStyle.color}
+              opacity={lineStyle.opacity}
+              points={fullPathPoints}
+            />
+          )
       ) : null}
       {asset && streakPoints.length >= 2 && streakStyle ? (
-        <FadingStreakLine
-          color={streakStyle.color}
-          opacity={streakStyle.opacity}
-          points={streakPoints}
-        />
+          missionFocused ? (
+            <TrajectoryDots
+              color={streakStyle.color}
+              depthTest={false}
+              maxPoints={96}
+              opacity={streakStyle.opacity}
+              points={streakPoints}
+              radius={focusedStreakDotRadius}
+              renderOrder={9}
+            />
+          ) : (
+            <FadingStreakLine
+              color={streakStyle.color}
+              opacity={streakStyle.opacity}
+              points={streakPoints}
+            />
+          )
       ) : null}
       <group ref={anchorRef} name={missionId} position={ZERO_POSITION}>
         {model ? <primitive object={model} /> : null}
-        {missionFocused && model ? (
-          <mesh>
+        {missionFocused ? (
+          <mesh frustumCulled={false} renderOrder={10}>
             <sphereGeometry args={[focusLocatorRadius, 14, 14]} />
             <meshBasicMaterial
               color="#8ce8ff"
+              depthTest={false}
               depthWrite={false}
               opacity={0.5}
+              side={DoubleSide}
               toneMapped={false}
               transparent
               wireframe

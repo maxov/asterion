@@ -50,6 +50,7 @@ import {
   timelineSystemMs,
   type SimulationTimeline,
 } from "../lib/simulationTimeline.ts";
+import type { RendererMode } from "../lib/rendererMode.ts";
 import { kmToUnits } from "../lib/units.ts";
 
 type Pipeline = { outputNode: unknown; renderAsync: () => Promise<void> };
@@ -62,6 +63,7 @@ type SceneProps = {
   timeline: SimulationTimeline;
   /** Written every frame with the camera-to-target distance in scene units. */
   cameraDistanceRef?: RefObject<number>;
+  rendererMode: RendererMode;
 };
 
 const BODY_IDS = Object.keys(BODY_DEFINITIONS) as BodyId[];
@@ -69,9 +71,12 @@ const AXIAL_TILT_RAD = (SATURN_AXIAL_TILT_DEG * Math.PI) / 180;
 const AXIAL_TILT_AXIS = new Vector3(0, 0, 1);
 const CANARY_COLOR = new Color("#ff1fbf");
 const CAMERA_NEAR_SCALE = 0.01;
-const MISSION_CAMERA_NEAR_SCALE = 0.001;
+const MISSION_CAMERA_NEAR_SCALE = 0.05;
 const CAMERA_FAR_MARGIN = 1.2;
 const MIN_FOCUS_DISTANCE = 1e-8;
+const ARTEMIS_CAMERA_BODY_IDS: readonly BodyId[] = ["earth", "moon", "artemis2"];
+const ARTEMIS_CAMERA_FAR_MULTIPLIER = 100_000;
+const ARTEMIS_CAMERA_MIN_FAR_KM = 50;
 const TARGET_FOLLOW_DAMPING = 0.16;
 const DISTANCE_FOLLOW_DAMPING = 0.18;
 const FALLBACK_VIEW_DIRECTION = new Vector3(0.54, 0.31, 0.78).normalize();
@@ -95,7 +100,7 @@ function clampFocusDistance(bodyId: BodyId, distanceUnits: number) {
   return MathUtils.clamp(distanceUnits, minDistance, maxDistance);
 }
 
-function Effects() {
+function Effects({ rendererMode }: { rendererMode: RendererMode }) {
   const { gl, scene, camera } = useThree();
   const pipelineRef = useRef<Pipeline | null>(null);
   const renderInFlightRef = useRef(false);
@@ -139,6 +144,12 @@ function Effects() {
   });
 
   useEffect(() => {
+    if (rendererMode !== "webgpu") {
+      pipelineRef.current = null;
+      renderInFlightRef.current = false;
+      return;
+    }
+
     let cancelled = false;
 
     async function init() {
@@ -177,7 +188,7 @@ function Effects() {
       pipelineRef.current = null;
       renderInFlightRef.current = false;
     };
-  }, [gl, scene, camera, bloomStrength, bloomRadius, bloomThreshold]);
+  }, [gl, scene, camera, bloomStrength, bloomRadius, bloomThreshold, rendererMode]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
@@ -186,6 +197,11 @@ function Effects() {
   }, [gl, exposure]);
 
   useFrame(() => {
+    if (rendererMode !== "webgpu") {
+      gl.render(scene, camera);
+      return;
+    }
+
     if (!postprocess || !pipelineRef.current) {
       gl.render(scene, camera);
       return;
@@ -276,7 +292,7 @@ function FocusCameraRig({
     currentOffsetRef.current.copy(camera.position).sub(controls.target);
 
     let currentDistance = currentOffsetRef.current.length();
-    if (currentDistance <= 1e-5) {
+    if (currentDistance <= MIN_FOCUS_DISTANCE) {
       currentOffsetRef.current.copy(FALLBACK_VIEW_DIRECTION);
       currentDistance = targetDistanceRef.current;
     } else {
@@ -313,6 +329,7 @@ export const Scene = memo(function Scene({
   activeMissionId,
   timeline,
   cameraDistanceRef,
+  rendererMode,
 }: SceneProps) {
   const camera = useThree((state) => state.camera);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
@@ -446,8 +463,11 @@ export const Scene = memo(function Scene({
       );
     }
 
+    const farPlaneBodyIds =
+      focusBodyId === "artemis2" ? ARTEMIS_CAMERA_BODY_IDS : BODY_IDS;
+
     let furthestBodyDistanceKm = 1;
-    for (const bodyId of BODY_IDS) {
+    for (const bodyId of farPlaneBodyIds) {
       const body = simulation.bodies[bodyId];
       furthestBodyDistanceKm = Math.max(
         furthestBodyDistanceKm,
@@ -468,8 +488,18 @@ export const Scene = memo(function Scene({
       MIN_FOCUS_DISTANCE,
       currentFocusDistance * nearScale,
     );
-    const nextFar =
+    const unclampedFar =
       currentFocusDistance + kmToUnits(furthestBodyDistanceKm * CAMERA_FAR_MARGIN);
+    const nextFar =
+      focusBodyId === "artemis2"
+        ? Math.min(
+            unclampedFar,
+            Math.max(
+              kmToUnits(ARTEMIS_CAMERA_MIN_FAR_KM),
+              currentFocusDistance * ARTEMIS_CAMERA_FAR_MULTIPLIER,
+            ),
+          )
+        : unclampedFar;
 
     if (
       Math.abs(camera.near - nextNear) > 1e-3 ||
@@ -519,9 +549,10 @@ export const Scene = memo(function Scene({
           <group ref={saturnSpinRef}>
             <Saturn
               localSunDirection={saturnLocalSunDirectionRef.current}
+              rendererMode={rendererMode}
               textured={texturedSaturn}
             />
-            <Atmosphere />
+            <Atmosphere rendererMode={rendererMode} />
           </group>
           <Rings
             textured={texturedRings}
@@ -541,6 +572,7 @@ export const Scene = memo(function Scene({
           <group ref={earthSpinRef}>
             <Earth
               localSunDirection={simulationRef.current.bodies.earth.sunDirectionWorld}
+              rendererMode={rendererMode}
               simulationStateRef={simulationRef}
             />
           </group>
@@ -571,7 +603,7 @@ export const Scene = memo(function Scene({
       {focusBodyId === "sun" ? null : (
         <Lighting direction={simulationRef.current.focusSunDirectionWorld} />
       )}
-      <Effects />
+      <Effects rendererMode={rendererMode} />
     </>
   );
 });

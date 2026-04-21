@@ -10,11 +10,12 @@ import { useFrame } from "@react-three/fiber";
 import {
   FrontSide,
   Group,
-  MeshStandardMaterial,
   MeshPhysicalMaterial,
+  MeshStandardMaterial,
   Vector3,
 } from "three";
 import { EARTH_RADIUS_KM } from "../lib/constants.ts";
+import type { RendererMode } from "../lib/rendererMode.ts";
 import type { SolarSystemState } from "../lib/solarSystemState.ts";
 import { kmToUnits } from "../lib/units.ts";
 import {
@@ -40,10 +41,11 @@ const AURORA_LOOP_MS = 9 * 3_600_000;
 
 type EarthProps = {
   localSunDirection: Vector3;
+  rendererMode: RendererMode;
   simulationStateRef: MutableRefObject<SolarSystemState>;
 };
 
-export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
+export function Earth({ localSunDirection, rendererMode, simulationStateRef }: EarthProps) {
   const timelineRef = useRef(earthTextureTimeline(simulationStateRef.current.dateMs));
   const [monthIndex, setMonthIndex] = useState(timelineRef.current.monthIndex);
   const monthIndexRef = useRef(monthIndex);
@@ -97,12 +99,16 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     });
   }, [cloudTexture]);
   const atmosphereMaterialBundle = useMemo(
-    () => createEarthAtmosphereMaterial(),
-    [],
+    () => (rendererMode === "webgpu" ? createEarthAtmosphereMaterial() : null),
+    [rendererMode],
   );
-  const auroraMaterialBundle = useMemo(() => createEarthAuroraMaterial(), []);
+  const auroraMaterialBundle = useMemo(
+    () => (rendererMode === "webgpu" ? createEarthAuroraMaterial() : null),
+    [rendererMode],
+  );
 
   const earthMaterialBundle = useMemo(() => {
+    if (rendererMode !== "webgpu") return null;
     if (!dayTexture || !nightTexture) return null;
 
     return createEarthMaterial(
@@ -112,7 +118,7 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       timelineRef.current.blend,
       NIGHT_LIGHTS_INTENSITY,
     );
-  }, [dayTexture, nightTexture, nextDayTexture]);
+  }, [dayTexture, nightTexture, nextDayTexture, rendererMode]);
 
   useEffect(() => {
     monthIndexRef.current = monthIndex;
@@ -131,12 +137,12 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
   }, [cloudMaterial]);
   useEffect(() => {
     return () => {
-      atmosphereMaterialBundle.material.dispose();
+      atmosphereMaterialBundle?.material.dispose();
     };
   }, [atmosphereMaterialBundle]);
   useEffect(() => {
     return () => {
-      auroraMaterialBundle.material.dispose();
+      auroraMaterialBundle?.material.dispose();
     };
   }, [auroraMaterialBundle]);
 
@@ -182,13 +188,15 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
         .copy(localSunDirection)
         .normalize();
     }
-    atmosphereMaterialBundle.sunDirectionUniform.value
+    atmosphereMaterialBundle?.sunDirectionUniform.value
       .copy(localSunDirection)
       .normalize();
-    auroraMaterialBundle.sunDirectionUniform.value.copy(localSunDirection).normalize();
-    auroraMaterialBundle.phaseUniform.value =
-      (((simulationDateMs % AURORA_LOOP_MS) + AURORA_LOOP_MS) % AURORA_LOOP_MS) /
-      AURORA_LOOP_MS;
+    if (auroraMaterialBundle) {
+      auroraMaterialBundle.sunDirectionUniform.value.copy(localSunDirection).normalize();
+      auroraMaterialBundle.phaseUniform.value =
+        (((simulationDateMs % AURORA_LOOP_MS) + AURORA_LOOP_MS) % AURORA_LOOP_MS) /
+        AURORA_LOOP_MS;
+    }
 
     if (cloudSpinRef.current) {
       const cloudPhase =
@@ -215,20 +223,24 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
           </mesh>
         </group>
       ) : null}
-      <mesh
-        material={auroraMaterialBundle.material}
-        renderOrder={2}
-        scale={[AURORA_LAYER_SCALE, AURORA_LAYER_SCALE, AURORA_LAYER_SCALE]}
-      >
-        <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
-      </mesh>
-      <mesh
-        material={atmosphereMaterialBundle.material}
-        renderOrder={3}
-        scale={[ATMOSPHERE_SCALE, ATMOSPHERE_SCALE, ATMOSPHERE_SCALE]}
-      >
-        <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
-      </mesh>
+      {auroraMaterialBundle ? (
+        <mesh
+          material={auroraMaterialBundle.material}
+          renderOrder={2}
+          scale={[AURORA_LAYER_SCALE, AURORA_LAYER_SCALE, AURORA_LAYER_SCALE]}
+        >
+          <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
+        </mesh>
+      ) : null}
+      {atmosphereMaterialBundle ? (
+        <mesh
+          material={atmosphereMaterialBundle.material}
+          renderOrder={3}
+          scale={[ATMOSPHERE_SCALE, ATMOSPHERE_SCALE, ATMOSPHERE_SCALE]}
+        >
+          <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
+        </mesh>
+      ) : null}
     </>
   );
 }

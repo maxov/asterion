@@ -9,7 +9,7 @@ import {
 } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Leva } from "leva";
-import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
+import { ACESFilmicToneMapping, SRGBColorSpace, WebGLRenderer } from "three";
 import { Scene } from "./Scene/Scene.tsx";
 import {
   BODY_DEFINITIONS,
@@ -33,6 +33,10 @@ import {
   type SimulationTimeline,
 } from "./lib/simulationTimeline.ts";
 import { kmVecToUnits } from "./lib/units.ts";
+import {
+  preferredRendererModeFromSearch,
+  type RendererMode,
+} from "./lib/rendererMode.ts";
 
 const DEFAULT_CAMERA_DISTANCE_SCALE =
   BODY_DEFINITIONS[DEFAULT_FOCUS_BODY_ID].defaultFocusDistanceKm /
@@ -597,9 +601,23 @@ function useWebGPUSupport() {
 
 // R3F v9 passes DefaultGLProps (includes canvas + WebGLRenderer params), not
 // a bare HTMLCanvasElement. We destructure the canvas from the props.
-async function createRenderer(props: {
+async function createRenderer(
+  props: {
   canvas: HTMLCanvasElement | OffscreenCanvas;
-}) {
+  },
+  rendererMode: RendererMode,
+) {
+  if (rendererMode === "webgl") {
+    const renderer = new WebGLRenderer({
+      canvas: props.canvas as HTMLCanvasElement,
+      antialias: true,
+    });
+    renderer.toneMapping = ACESFilmicToneMapping;
+    renderer.toneMappingExposure = DEFAULT_EXPOSURE;
+    renderer.outputColorSpace = SRGBColorSpace;
+    return renderer;
+  }
+
   const { WebGPURenderer } = await import("three/webgpu");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderer = new (WebGPURenderer as any)({
@@ -1181,6 +1199,9 @@ function loadPersistedState(): PersistedState | null {
 const PERSISTED = loadPersistedState();
 
 export function App() {
+  const [rendererMode] = useState<RendererMode>(() =>
+    preferredRendererModeFromSearch(window.location.search),
+  );
   const gpu = useWebGPUSupport();
   const { hidden: levaHidden, toggle: toggleLeva } = useLevaVisibility();
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -1258,8 +1279,8 @@ export function App() {
       document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
-  if (gpu === "checking") return null;
-  if (gpu === "unsupported") return <WebGPUError />;
+  if (rendererMode === "webgpu" && gpu === "checking") return null;
+  if (rendererMode === "webgpu" && gpu === "unsupported") return <WebGPUError />;
 
   return (
     <div
@@ -1455,7 +1476,9 @@ export function App() {
         // R3F v9 accepts an async renderer factory. The cast is needed because
         // the published types still default to WebGLRenderer signatures.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        gl={createRenderer as any}
+        gl={((props: { canvas: HTMLCanvasElement | OffscreenCanvas }) =>
+          createRenderer(props, rendererMode)) as any}
+        key={rendererMode}
         camera={{
           position: DEFAULT_CAM_POS,
           fov: CAMERA_FOV,
@@ -1464,7 +1487,13 @@ export function App() {
         }}
         style={{ position: "fixed", inset: 0 }}
       >
-        <Scene focusBodyId={focusBodyId} activeMissionId={activeMissionId} timeline={timeline} cameraDistanceRef={cameraDistanceRef} />
+        <Scene
+          focusBodyId={focusBodyId}
+          activeMissionId={activeMissionId}
+          timeline={timeline}
+          cameraDistanceRef={cameraDistanceRef}
+          rendererMode={rendererMode}
+        />
       </Canvas>
     </div>
   );
