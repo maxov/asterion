@@ -51,9 +51,7 @@ processor = "saturn_rings_bjj"
 inner_radius_km = 74510
 outer_radius_km = 140390
 output = "saturn_rings_scattering.png"
-extra_outputs = [
-    "saturn_rings_color.png",
-]
+extra_outputs = ["saturn_rings_color.png"]
 
 [[source.extra_files]]
 name = "backscattered"
@@ -110,6 +108,6 @@ license = "CC BY-NC 3.0"
 attribution = "Nick Risinger / Photopic Sky Survey"
 source_page = "http://skysurvey.org/"
 processor = "starfield"
-coordinate_frame = "equatorial"
+coordinate_frame = "galactic"
 max_width = 8192
 output = "milky_way_risinger.jpg"

@@ -1,14 +1,14 @@
-import type { CoordinateFrame } from './astronomicalFrame.ts'
+import type { CoordinateFrame } from "./astronomicalFrame.ts";
 
-export type PanoramaId = 'eso_brunier' | 'risinger' | 'sss'
+export type PanoramaId = "eso_brunier" | "risinger" | "sss";
 
 export interface Panorama {
-  id: PanoramaId
-  label: string
+  id: PanoramaId;
+  label: string;
   /** Path relative to the public textures directory (served at /textures/). */
-  file: string
-  frame: CoordinateFrame
-  attribution: string
+  file: string;
+  frame: CoordinateFrame;
+  attribution: string;
 }
 
 /**
@@ -28,26 +28,26 @@ export interface Panorama {
 
 export const PANORAMAS: Record<PanoramaId, Panorama> = {
   eso_brunier: {
-    id: 'eso_brunier',
-    label: 'ESO Brunier',
-    file: '/textures/milky_way_eso.jpg',
-    frame: 'galactic',
-    attribution: 'ESO / S. Brunier, F. Tapissier',
+    id: "eso_brunier",
+    label: "ESO Brunier",
+    file: "/textures/milky_way_eso.jpg",
+    frame: "galactic",
+    attribution: "ESO / S. Brunier, F. Tapissier",
   },
   risinger: {
-    id: 'risinger',
-    label: 'Risinger',
-    file: '/textures/milky_way_risinger.jpg',
-    frame: 'equatorial',
-    attribution: 'Nick Risinger / Photopic Sky Survey',
+    id: "risinger",
+    label: "Risinger",
+    file: "/textures/milky_way_risinger.jpg",
+    frame: "galactic",
+    attribution: "Nick Risinger / Photopic Sky Survey",
   },
   sss: {
-    id: 'sss',
-    label: 'Solar System Scope',
-    file: '/textures/milky_way.jpg',
-    frame: 'galactic',
-    attribution: 'INOVE / Solar System Scope',
+    id: "sss",
+    label: "Solar System Scope",
+    file: "/textures/milky_way.jpg",
+    frame: "galactic",
+    attribution: "INOVE / Solar System Scope",
   },
-}
+};
 
-export const DEFAULT_PANORAMA: PanoramaId = 'eso_brunier'
+export const DEFAULT_PANORAMA: PanoramaId = "eso_brunier";
