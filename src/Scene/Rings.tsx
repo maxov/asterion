@@ -47,9 +47,14 @@ const RING_SHADOW_PENUMBRA_SOFTNESS = SATURN_EQUATORIAL * 0.055
 const RING_SHADOW_PENUMBRA_OPACITY = 0.58
 const RING_SHADOW_DENSITY_BOOST = 2.35
 const SATURNSHINE_COLOR = new Color(1.0, 0.91, 0.76)
-const SATURNSHINE_FILL_SCALE = 0.122
-const SATURNSHINE_FILL_MIN = 0.02
-const SATURNSHINE_FILL_MAX = 0.08
+const SATURNSHINE_BOND_ALBEDO = 0.34
+const SATURNSHINE_EQUIVALENT_RADIUS = Math.sqrt(
+  SATURN_EQUATORIAL * SATURN_POLAR,
+)
+const SATURNSHINE_CALIBRATION = 1.7
+const SATURNSHINE_LIMB_HAZE_SCALE = 0.28
+const SATURNSHINE_RINGSHINE_FLOOR = 0.0035
+const SATURNSHINE_MAX_FILL = 0.085
 const RING_SHADOW_SUN_PROJECTION_EPSILON = 1e-4
 const FALLBACK_COLOR = new Color(0.83, 0.77, 0.63)
 const PHASE_EPSILON = 0.002
@@ -397,15 +402,50 @@ function shadowCoverageFromInsideDistance(
   )
 }
 
-function computeSaturnshineFill(radius: number) {
-  const inverseSquare =
-    SATURNSHINE_FILL_SCALE * (SATURN_EQUATORIAL * SATURN_EQUATORIAL) /
-    (radius * radius)
+function computeSaturnSolidAngleFraction(radius: number) {
+  const clampedRatio = MathUtils.clamp(
+    SATURNSHINE_EQUIVALENT_RADIUS / radius,
+    0,
+    0.999999,
+  )
+  return 1 - Math.sqrt(1 - clampedRatio * clampedRatio)
+}
+
+function computeSaturnshineFillStrength(
+  radius: number,
+  px: number,
+  py: number,
+  localSunDirection: Vector3,
+  boostedRingOpacity: number,
+) {
+  const saturnToSampleX = px / radius
+  const saturnToSampleY = py / radius
+  const cosPhase = MathUtils.clamp(
+    saturnToSampleX * localSunDirection.x +
+      saturnToSampleY * localSunDirection.y,
+    -1,
+    1,
+  )
+  const visibleLitHemisphere = 0.5 * (1 + cosPhase)
+  const sunElevation = Math.abs(localSunDirection.z)
+  const limbHaze =
+    Math.sqrt(Math.max(1 - cosPhase * cosPhase, 0)) * sunElevation
+  const solidAngleFraction = computeSaturnSolidAngleFraction(radius)
+  const saturnshine =
+    SATURNSHINE_BOND_ALBEDO *
+    solidAngleFraction *
+    (visibleLitHemisphere + SATURNSHINE_LIMB_HAZE_SCALE * limbHaze) *
+    SATURNSHINE_CALIBRATION *
+    MathUtils.lerp(0.78, 1.08, boostedRingOpacity)
+  const ringshine =
+    solidAngleFraction *
+    SATURNSHINE_RINGSHINE_FLOOR *
+    MathUtils.lerp(0.35, 1, boostedRingOpacity)
 
   return MathUtils.clamp(
-    inverseSquare,
-    SATURNSHINE_FILL_MIN,
-    SATURNSHINE_FILL_MAX,
+    saturnshine + ringshine,
+    0,
+    SATURNSHINE_MAX_FILL,
   )
 }
 
@@ -536,7 +576,13 @@ function renderPlanetShadowTexture(
       data[dst + 3] = Math.round(alpha * 255)
 
       if (fillData && fillBundle) {
-        const saturnshineFill = computeSaturnshineFill(radius)
+        const saturnshineFill = computeSaturnshineFillStrength(
+          radius,
+          px,
+          py,
+          localSunDirection,
+          boostedRingOpacity,
+        )
         const fillAlpha = Math.min(
           fillStrength *
             saturnshineFill *
