@@ -1,0 +1,22 @@
+{
+  "source_id": "saturn_body_bjj",
+  "source_url": "https://bjj.mmedia.is/data/saturn/saturn.jpg",
+  "source_page": "http://bjj.mmedia.is/planetary_maps.html",
+  "license": "Free use with attribution; redistribution prohibited \u2014 fetch for local use only",
+  "attribution": "Bj\u00f6rn J\u00f3nsson",
+  "sha256_raw": "2d699c01f06dfe6419d9e7e6b1fead63c45d499294c2909356f31dda0ba82db3",
+  "sha256_output": "e30ea2b6f2b50311362cdc6630eedf31334683e6206ce676ad284f6bf6e3ca7f",
+  "processor": "saturn_body",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T06:04:01.920018+00:00",
+  "input_dimensions": [
+    2880,
+    1440
+  ],
+  "output_dimensions": [
+    2880,
+    1440
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

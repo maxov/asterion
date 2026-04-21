@@ -1,0 +1,115 @@
+[[source]]
+id = "saturn_body_bjj"
+description = "Saturn cylindrical map (Voyager 2 north + Cassini south) by Björn Jónsson"
+url = "https://bjj.mmedia.is/data/saturn/saturn.jpg"
+sha256 = "2d699c01f06dfe6419d9e7e6b1fead63c45d499294c2909356f31dda0ba82db3"
+license = "Free use with attribution; redistribution prohibited — fetch for local use only"
+attribution = "Björn Jónsson"
+source_page = "http://bjj.mmedia.is/planetary_maps.html"
+processor = "saturn_body"
+max_width = 4096
+output = "saturn_albedo.jpg"
+
+[[source]]
+id = "saturn_body_sss"
+description = "Saturn texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/8k_saturn.jpg"
+sha256 = "0d39a4a490c87c3edabe00a3881a29bb3418364178c79c534fe0986e97e09853"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "saturn_body"
+max_width = 4096
+output = "saturn_albedo_fallback.jpg"
+
+[[source]]
+id = "saturn_rings_ppe"
+description = "Saturn rings by Planet Pixel Emporium (color + transparency)"
+url = "https://planetpixelemporium.com/download/download.php?saturnringcolor.jpg"
+transparency_raw = "https://planetpixelemporium.com/download/download.php?saturnringpattern.gif"
+sha256 = "801a5562b7c1356e3abeee0d08720fa82ea4f52bdcd47d7b7a4dd3e991a12076"
+sha256_transparency = "8d5b37b7d0d86c948ef7c5e90f29f3d989f2a7289d09e797de42eba3a3de9270"
+license = "See Planet Pixel Emporium terms"
+attribution = "James Hastings-Trew, Planet Pixel Emporium"
+source_page = "https://planetpixelemporium.com/saturn.html"
+processor = "saturn_rings"
+ring_input = "color_plus_transparency"
+max_width = 4096
+inner_radius_km = 0
+outer_radius_km = 0
+output = "saturn_rings.png"
+
+[[source]]
+id = "saturn_rings_bjj"
+description = "Saturn ring 1D profiles by Björn Jónsson — Voyager imagery + PDS occultation data"
+url = "https://bjj.mmedia.is/data/s_rings/transparency.txt"
+sha256 = "a9b4c8cf2cbf19346ebec044cd3f1db0a57488481b9cda967b742c759c4b9922"
+license = "Free use with attribution; redistribution prohibited — fetch for local use only"
+attribution = "Björn Jónsson"
+source_page = "https://bjj.mmedia.is/data/s_rings/index.html"
+processor = "saturn_rings_bjj"
+inner_radius_km = 74510
+outer_radius_km = 140390
+output = "saturn_rings_scattering.png"
+extra_outputs = [
+    "saturn_rings_color.png",
+]
+
+[[source.extra_files]]
+name = "backscattered"
+url = "https://bjj.mmedia.is/data/s_rings/backscattered.txt"
+sha256 = "b7fd2a735626019565195f2107e2dc38d08c839123efe82a46e6f1ef62e2e47f"
+
+[[source.extra_files]]
+name = "forwardscattered"
+url = "https://bjj.mmedia.is/data/s_rings/forwardscattered.txt"
+sha256 = "7ca46db8590986e17dd5159a559b4d1f58dd147da0442deb844a604d4924da67"
+
+[[source.extra_files]]
+name = "unlitside"
+url = "https://bjj.mmedia.is/data/s_rings/unlitside.txt"
+sha256 = "b8cf5eb1d5d34292f4b1b89d8ae0ea7c3b4d5077ff65c71f766fbb25e883b850"
+
+[[source.extra_files]]
+name = "color"
+url = "https://bjj.mmedia.is/data/s_rings/sat_rings_color.txt"
+sha256 = "3b5f66895c57c79bf54e2f7d280c111cae49c9f2ca676b49e0ed34f1ece6c2ef"
+
+[[source]]
+id = "milky_way_sss"
+description = "8K Milky Way panorama (Solar System Scope, CC-BY 4.0) — galactic coordinates"
+url = "https://www.solarsystemscope.com/textures/download/8k_stars_milky_way.jpg"
+sha256 = "1fd005ddd6d53364cc5106e0121b83fd3bca236b1503f6b51f5501d9d51eafaf"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "starfield"
+coordinate_frame = "galactic"
+max_width = 8192
+output = "milky_way.jpg"
+
+[[source]]
+id = "milky_way_eso_brunier"
+description = "ESO Gigagalaxy Zoom Milky Way panorama (Brunier / Tapissier) — galactic coordinates"
+url = "https://cdn.eso.org/images/original/eso0932a.tif"
+sha256 = "10f209ab83e1fd89e7fa1ed70277ffc6ed19c43549f04ec637c6806d98aff035"
+license = "Free for personal / educational use with attribution"
+attribution = "ESO / S. Brunier, F. Tapissier"
+source_page = "https://www.eso.org/public/images/eso0932a/"
+processor = "starfield"
+coordinate_frame = "galactic"
+max_width = 8192
+output = "milky_way_eso.jpg"
+
+[[source]]
+id = "milky_way_risinger"
+description = "Photopic Sky Survey by Nick Risinger — equatorial (ICRS) coordinates"
+url = "https://apod.nasa.gov/apod/image/1105/3000_CC_BY-NC.jpg"
+sha256 = "9f2c8adb58ae2a9995b6ec4e603c2c57072c19280926f986da6bd66e91216d5d"
+license = "CC BY-NC 3.0"
+attribution = "Nick Risinger / Photopic Sky Survey"
+source_page = "http://skysurvey.org/"
+processor = "starfield"
+coordinate_frame = "equatorial"
+max_width = 8192
+output = "milky_way_risinger.jpg"

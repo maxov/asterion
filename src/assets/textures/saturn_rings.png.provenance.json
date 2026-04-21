@@ -1,0 +1,20 @@
+{
+  "source_id": "saturn_rings_ppe",
+  "source_url": "https://planetpixelemporium.com/download/download.php?saturnringcolor.jpg",
+  "source_page": "https://planetpixelemporium.com/saturn.html",
+  "license": "See Planet Pixel Emporium terms",
+  "attribution": "James Hastings-Trew, Planet Pixel Emporium",
+  "sha256_raw": "801a5562b7c1356e3abeee0d08720fa82ea4f52bdcd47d7b7a4dd3e991a12076",
+  "sha256_output": "1ec1dfb2a86351c2178cc70a9e3197bd5f1106ce41399982d53508fbf1f92c41",
+  "processor": "saturn_rings",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T06:04:01.965058+00:00",
+  "ring_input_mode": "color_plus_transparency",
+  "inner_radius_km": 0,
+  "outer_radius_km": 0,
+  "output_width": 915,
+  "input_dimensions": [
+    915,
+    64
+  ]
+}

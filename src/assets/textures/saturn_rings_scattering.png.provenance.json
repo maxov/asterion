@@ -1,0 +1,29 @@
+{
+  "source_id": "saturn_rings_bjj",
+  "source_url": "https://bjj.mmedia.is/data/s_rings/transparency.txt",
+  "source_page": "https://bjj.mmedia.is/data/s_rings/index.html",
+  "license": "Free use with attribution; redistribution prohibited \u2014 fetch for local use only",
+  "attribution": "Bj\u00f6rn J\u00f3nsson",
+  "sha256_raw": "a9b4c8cf2cbf19346ebec044cd3f1db0a57488481b9cda967b742c759c4b9922",
+  "sha256_output": "e3d2a4fa3b4fae9342b254198276cc8354f835089370d5d82ee3f80d2f76dc8f",
+  "processor": "saturn_rings_bjj",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T06:04:01.976943+00:00",
+  "inner_radius_km": 74510,
+  "outer_radius_km": 140390,
+  "sample_count": 13177,
+  "radial_resolution_km": 5,
+  "channel_semantics": {
+    "R": "backscattered brightness (0\u00b0 phase angle)",
+    "G": "forward-scattered brightness (~139\u00b0 phase angle)",
+    "B": "unlit-side brightness",
+    "A": "transparency \u2014 Bj\u00f6rn's convention: 1 = no material, 0 = fully opaque (OPPOSITE of conventional alpha)"
+  },
+  "raw_file_hashes": {
+    "transparency": "a9b4c8cf2cbf19346ebec044cd3f1db0a57488481b9cda967b742c759c4b9922",
+    "backscattered": "b7fd2a735626019565195f2107e2dc38d08c839123efe82a46e6f1ef62e2e47f",
+    "forwardscattered": "7ca46db8590986e17dd5159a559b4d1f58dd147da0442deb844a604d4924da67",
+    "unlitside": "b8cf5eb1d5d34292f4b1b89d8ae0ea7c3b4d5077ff65c71f766fbb25e883b850",
+    "color": "3b5f66895c57c79bf54e2f7d280c111cae49c9f2ca676b49e0ed34f1ece6c2ef"
+  }
+}

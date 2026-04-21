@@ -1,0 +1,23 @@
+{
+  "source_id": "milky_way_eso_brunier",
+  "source_url": "https://cdn.eso.org/images/original/eso0932a.tif",
+  "source_page": "https://www.eso.org/public/images/eso0932a/",
+  "license": "Free for personal / educational use with attribution",
+  "attribution": "ESO / S. Brunier, F. Tapissier",
+  "sha256_raw": "10f209ab83e1fd89e7fa1ed70277ffc6ed19c43549f04ec637c6806d98aff035",
+  "sha256_output": "a4ff5530120f1f01fd472c45a416a5f82618c2472b1a945853f399b1816bda46",
+  "processor": "starfield",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T06:04:02.409221+00:00",
+  "input_dimensions": [
+    6000,
+    3000
+  ],
+  "output_dimensions": [
+    6000,
+    3000
+  ],
+  "color_space": "sRGB",
+  "projection": "equirectangular",
+  "coordinate_frame": "galactic"
+}
