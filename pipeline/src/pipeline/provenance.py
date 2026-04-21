@@ -1,4 +1,4 @@
-"""Write provenance metadata alongside output textures."""
+"""Write provenance metadata alongside processed assets."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from pipeline.sources import Source
 
 
 def provenance_path(texture_path: Path) -> Path:
-    """Return the .provenance.json path for a given texture file."""
+    """Return the .provenance.json path for a processed asset."""
     return texture_path.with_suffix(texture_path.suffix + ".provenance.json")
 
 
@@ -21,9 +21,10 @@ def write_provenance(
     source: Source,
     sha256_raw: str,
     sha256_output: str,
+    raw_inputs: list[dict[str, Any]] | None = None,
     extra: dict[str, Any] | None = None,
 ) -> Path:
-    """Write a provenance JSON file next to the output texture.
+    """Write a provenance JSON file next to a processed asset.
 
     Returns the path to the written file.
     """
@@ -34,12 +35,15 @@ def write_provenance(
         "source_page": source.source_page,
         "license": source.license,
         "attribution": source.attribution,
+        "asset_type": source.asset_type,
         "sha256_raw": sha256_raw,
         "sha256_output": sha256_output,
         "processor": source.processor,
         "pipeline_version": __version__,
         "processed_at": datetime.now(timezone.utc).isoformat(),
     }
+    if raw_inputs is not None:
+        data["raw_inputs"] = raw_inputs
     if extra:
         data.update(extra)
     out.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")

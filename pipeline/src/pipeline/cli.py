@@ -15,7 +15,7 @@ from pipeline.commands.process import run_process
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pipeline",
-        description="Texture processing pipeline for Asterion.",
+        description="Asset processing pipeline for Asterion.",
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -29,7 +29,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # process
-    proc_p = sub.add_parser("process", help="Run processors and install textures")
+    proc_p = sub.add_parser("process", help="Run processors and install assets")
     proc_p.add_argument("--source", help="Process only this source id")
 
     # list
@@ -37,7 +37,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     # install
     sub.add_parser(
-        "install", help="Copy processed textures to public/textures/ for Vite"
+        "install", help="Copy processed assets to public/ for Vite"
     )
 
     # attribution

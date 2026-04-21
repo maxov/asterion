@@ -308,3 +308,120 @@ source_page = "https://svs.gsfc.nasa.gov/4720/"
 processor = "moon_height"
 max_width = 4096
 output = "moon_height.png"
+
+[[source]]
+id = "orion-spacecraft"
+description = "Third-party Orion spacecraft GLB model from Sketchfab, manually downloaded as a zip archive"
+url = "https://sketchfab.com/3d-models/orion-spacecraft-fb89e865dcd446b89eaf78deaf213974"
+sha256 = "dff68ea71e1cfa1b55528f5a556fae17e4aecdb2090244697256ec10f09ef25a"
+license = "CC BY 4.0"
+attribution = "WISEMANmods (Sketchfab)"
+source_page = "https://sketchfab.com/3d-models/orion-spacecraft-fb89e865dcd446b89eaf78deaf213974"
+processor = "zip_glb"
+asset_type = "models"
+local_only = true
+output = "orion_spacecraft.glb"
+
+[source.config]
+member_path = "source/orionspacecraft.glb"
+
+[[source]]
+id = "artemis_ii_horizons"
+description = "Artemis II Earth-centered vector ephemeris sampled from JPL Horizons, with NASA mission documentation retained as supporting provenance"
+url = "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27-1024%27&OBJ_DATA=%27YES%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&START_TIME=%272026-04-02+01%3A59%27&STOP_TIME=%272026-04-10+23%3A51%27&STEP_SIZE=%275+min%27&TIME_TYPE=%27UT%27&TIME_DIGITS=%27SECONDS%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27&VEC_CORR=%27NONE%27&CSV_FORMAT=%27YES%27"
+sha256 = "5cc9b759415c44c4011004cbd471a54457a546333a247aa81bdb16a3e2eef0c8"
+license = "Public Domain (NASA/JPL ephemeris data; NASA mission documentation)"
+attribution = "NASA/JPL Solar System Dynamics; NASA"
+source_page = "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
+processor = "jpl_horizons_mission"
+asset_type = "missions"
+download_normalizer = "jpl_horizons_json"
+output = "artemis_ii.json"
+
+[[source.extra_files]]
+name = "press_kit"
+url = "https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf"
+sha256 = "da1ce32f8377bdb630314606ec5e0e38774f1af8d77a008f8d4d4afe78fea88f"
+
+[[source.extra_files]]
+name = "reference_moon"
+url = "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&START_TIME=%272026-04-02+01%3A59%27&STOP_TIME=%272026-04-10+23%3A51%27&STEP_SIZE=%275+min%27&TIME_TYPE=%27UT%27&TIME_DIGITS=%27SECONDS%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27&VEC_CORR=%27NONE%27&CSV_FORMAT=%27YES%27"
+sha256 = "163b054b72958a1e08fd8167dbd1da8ef76520d014f94d95c4166920056bb75f"
+download_normalizer = "jpl_horizons_json"
+
+[source.config]
+mission_id = "artemis2"
+mission_name = "Artemis II"
+system_id = "earthSystem"
+frame = "earth-centered-inertial"
+launch_utc = "2026-04-01T22:35:12Z"
+duration_seconds = 783108
+streak_window_seconds = 172800
+notes = "Flight path sampled from JPL Horizons Earth-centered vector ephemeris for target -1024. Horizons coverage begins at 2026-04-02T01:59:00Z, so the first 3 hours 23 minutes 48 seconds of the mission remain outside the sampled trajectory."
+references = [
+    "https://www.nasa.gov/missions/artemis/artemis-2/",
+    "https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf",
+    "https://ssd-api.jpl.nasa.gov/doc/horizons.html",
+]
+
+[source.config.style]
+line_color = "#7ecbff"
+line_opacity = 0.24
+streak_color = "#fff2bc"
+streak_opacity = 0.98
+head_color = "#fff9e3"
+head_radius_km = 320
+
+[source.config.visual]
+model_asset_path = "/models/orion_spacecraft.glb"
+model_longest_dimension_m = 7.92
+model_rotation_deg = [
+    0,
+    180,
+    0,
+]
+show_head = false
+
+[[source.config.events]]
+id = "launch"
+label = "Launch"
+t_plus_seconds = 0
+note = "Launch occurred on April 1, 2026 at 22:35:12 UTC from LC-39B."
+
+[[source.config.events]]
+id = "trajectory_start"
+label = "Horizons trajectory coverage begins"
+t_plus_seconds = 12228
+note = "JPL Horizons vector coverage begins at 2026-04-02T01:59:00Z, shortly after Orion/ICPS separation."
+
+[[source.config.events]]
+id = "lunar_sphere_entry"
+label = "Enter lunar sphere of influence"
+t_plus_seconds = 371012
+
+[[source.config.events]]
+id = "closest_approach"
+label = "Closest approach"
+t_plus_seconds = 433548
+note = "Horizons lists closest approach at 2026-04-06T23:01:00Z, 8,282 km from the Moon's center."
+
+[[source.config.events]]
+id = "max_distance"
+label = "Maximum distance from Earth"
+t_plus_seconds = 433788
+note = "Horizons lists maximum distance at 2026-04-06T23:05:00Z, 413,146.2 km from Earth's center."
+
+[[source.config.events]]
+id = "lunar_sphere_exit"
+label = "Exit lunar sphere of influence"
+t_plus_seconds = 496068
+
+[[source.config.events]]
+id = "entry_interface"
+label = "Entry interface"
+t_plus_seconds = 782268
+
+[[source.config.events]]
+id = "splashdown"
+label = "Splashdown"
+t_plus_seconds = 783108

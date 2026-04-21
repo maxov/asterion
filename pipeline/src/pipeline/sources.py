@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +22,8 @@ _REQUIRED_KEYS = {
 }
 
 _OPTIONAL_DEFAULTS: dict[str, Any] = {
+    "asset_type": "textures",
+    "download_normalizer": "",
     "local_only": False,
     "transparency_raw": "",
     "sha256_transparency": "",
@@ -42,6 +44,7 @@ class ExtraFile:
     name: str
     url: str
     sha256: str
+    download_normalizer: str = ""
 
 
 @dataclass(frozen=True)
@@ -56,6 +59,8 @@ class Source:
     processor: str
     output: str
     # Optional fields
+    asset_type: str = "textures"
+    download_normalizer: str = ""
     local_only: bool = False
     transparency_raw: str = ""
     sha256_transparency: str = ""
@@ -68,6 +73,7 @@ class Source:
     output_mode: str = ""
     extra_files: tuple[ExtraFile, ...] = ()
     extra_outputs: tuple[str, ...] = ()
+    config: dict[str, Any] = field(default_factory=dict)
 
 
 def load_sources(path: Path | None = None) -> list[Source]:
@@ -100,12 +106,14 @@ def load_sources(path: Path | None = None) -> list[Source]:
                 name=ef["name"],
                 url=ef["url"],
                 sha256=ef.get("sha256", ""),
+                download_normalizer=ef.get("download_normalizer", ""),
             )
             for ef in raw_extra_files
         )
 
         # extra_outputs: list of strings -> tuple
         kwargs["extra_outputs"] = tuple(entry.get("extra_outputs", []))
+        kwargs["config"] = dict(entry.get("config", {}))
 
         sources.append(Source(**kwargs))
 

@@ -6,38 +6,28 @@ import shutil
 from pathlib import Path
 
 from pipeline.hashing import sha256_file
-from pipeline.paths import intermediate_dir, raw_dir, textures_dir
+from pipeline.paths import asset_dir, intermediate_dir
 from pipeline.processors import get_processor
 from pipeline.provenance import write_provenance
+from pipeline.raw_inputs import collect_raw_inputs, serialize_raw_input
 from pipeline.sources import Source, find_source, load_sources
 
 
-def _find_raw_file(source: Source) -> Path:
-    """Locate the raw file for a source in data/raw/."""
-    raw = raw_dir()
-    candidates = list(raw.glob(f"{source.id}.*"))
-    if not candidates:
-        raise FileNotFoundError(
-            f"{source.id}: no raw file found in {raw}. Run 'fetch' first."
-        )
-    if len(candidates) > 1:
-        raise FileNotFoundError(
-            f"{source.id}: multiple raw files found: {candidates}. "
-            f"Remove duplicates."
-        )
-    return candidates[0]
-
-
 def _process_one(source: Source) -> None:
-    raw_path = _find_raw_file(source)
-    sha256_raw = sha256_file(raw_path)
+    raw_inputs = collect_raw_inputs(source)
+    raw_path = raw_inputs[0].path
+    sha256_raw = raw_inputs[0].sha256
+    raw_input_records = [
+        serialize_raw_input(raw_input)
+        for raw_input in raw_inputs
+    ]
 
     processor = get_processor(source.processor)
     inter_dir = intermediate_dir() / source.id
     print(f"  {source.id}: running processor '{source.processor}'")
     processed_path, extra_provenance = processor(raw_path, inter_dir, source)
 
-    out_dir = textures_dir()
+    out_dir = asset_dir(source.asset_type)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Multi-output processors stash additional intermediate paths here
@@ -55,6 +45,7 @@ def _process_one(source: Source) -> None:
         source,
         sha256_raw=sha256_raw,
         sha256_output=sha256_output,
+        raw_inputs=raw_input_records,
         extra=extra_provenance,
     )
     print(f"  {source.id}: installed {final_path.name}")
@@ -79,6 +70,7 @@ def _process_one(source: Source) -> None:
                 source,
                 sha256_raw=sha256_raw,
                 sha256_output=sha_out,
+                raw_inputs=raw_input_records,
                 extra=extra_provenance,
             )
             print(f"  {source.id}: installed {final.name}")

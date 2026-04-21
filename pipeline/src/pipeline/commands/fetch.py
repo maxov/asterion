@@ -12,6 +12,7 @@ import tomli_w
 import tomllib
 from tqdm import tqdm
 
+from pipeline.download_normalizers import apply_download_normalizer
 from pipeline.hashing import sha256_file
 from pipeline.paths import raw_dir, sources_toml
 from pipeline.sources import Source, find_source, load_sources
@@ -184,6 +185,7 @@ def _fetch_extra_files(source: Source, record: bool) -> None:
 
         print(f"  {label}: downloading from {ef.url}")
         _download(ef.url, label, dest)
+        apply_download_normalizer(dest, ef.download_normalizer)
 
         digest = sha256_file(dest)
         if record:
@@ -225,6 +227,7 @@ def _fetch_one(source: Source, record: bool) -> None:
 
     print(f"  {source.id}: downloading from {source.url}")
     _download(source.url, source.id, dest)
+    apply_download_normalizer(dest, source.download_normalizer)
 
     _verify_or_record(source.id, dest, source.sha256, "sha256", record)
 

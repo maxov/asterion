@@ -1,28 +1,29 @@
-"""Install command — copy processed textures to public/textures/ for Vite."""
+"""Install command — copy processed assets to public/ for Vite."""
 
 from __future__ import annotations
 
 import shutil
 
-from pipeline.paths import repo_root, textures_dir
+from pipeline.paths import assets_dir, public_asset_dir
 
 
 def run_install() -> None:
-    """Copy every non-provenance file from src/assets/textures/ to public/textures/."""
-    src = textures_dir()
-    dst = repo_root() / "public" / "textures"
-    dst.mkdir(parents=True, exist_ok=True)
-
     copied = 0
-    for path in sorted(src.iterdir()):
-        if path.suffix == ".json" or path.is_dir():
-            continue
-        out = dst / path.name
-        shutil.copy2(path, out)
-        print(f"  {path.name} -> public/textures/{path.name}")
-        copied += 1
+    for src_dir in sorted(
+        path for path in assets_dir().iterdir() if path.is_dir()
+    ):
+        dst_dir = public_asset_dir(src_dir.name)
+        dst_dir.mkdir(parents=True, exist_ok=True)
+
+        for path in sorted(src_dir.iterdir()):
+            if path.is_dir() or path.name.endswith(".provenance.json"):
+                continue
+            out = dst_dir / path.name
+            shutil.copy2(path, out)
+            print(f"  {path.name} -> public/{src_dir.name}/{path.name}")
+            copied += 1
 
     if copied:
-        print(f"Installed {copied} texture(s) to public/textures/")
+        print(f"Installed {copied} asset(s) to public/")
     else:
-        print("No textures found. Run 'pipeline process' first.")
+        print("No processed assets found. Run 'pipeline process' first.")

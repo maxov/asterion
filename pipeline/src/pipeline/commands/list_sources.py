@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pipeline.paths import raw_dir, textures_dir
+from pipeline.paths import asset_dir, raw_dir
 from pipeline.sources import load_sources
 
 
@@ -14,13 +14,11 @@ def run_list() -> None:
         return
 
     raw = raw_dir()
-    textures = textures_dir()
-
     # Header
     print(
-        f"{'ID':<30} {'Raw':<14} {'Output?':<10} {'SHA256?':<10} {'Processor'}"
+        f"{'ID':<30} {'Type':<12} {'Raw':<14} {'Output?':<10} {'SHA256?':<10} {'Processor'}"
     )
-    print("-" * 86)
+    print("-" * 100)
 
     for s in sources:
         has_raw = any(raw.glob(f"{s.id}.*"))
@@ -39,9 +37,9 @@ def run_list() -> None:
             total = len(s.extra_files)
             raw_status += f"+{present}/{total}"
 
-        output_present = "yes" if (textures / s.output).exists() else "no"
+        output_present = "yes" if (asset_dir(s.asset_type) / s.output).exists() else "no"
         sha_recorded = "yes" if s.sha256 else "no"
         print(
-            f"{s.id:<30} {raw_status:<14} {output_present:<10} "
+            f"{s.id:<30} {s.asset_type:<12} {raw_status:<14} {output_present:<10} "
             f"{sha_recorded:<10} {s.processor}"
         )

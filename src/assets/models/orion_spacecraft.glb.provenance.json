@@ -1,0 +1,23 @@
+{
+  "source_id": "orion-spacecraft",
+  "source_url": "https://sketchfab.com/3d-models/orion-spacecraft-fb89e865dcd446b89eaf78deaf213974",
+  "source_page": "https://sketchfab.com/3d-models/orion-spacecraft-fb89e865dcd446b89eaf78deaf213974",
+  "license": "CC BY 4.0",
+  "attribution": "WISEMANmods (Sketchfab)",
+  "asset_type": "models",
+  "sha256_raw": "dff68ea71e1cfa1b55528f5a556fae17e4aecdb2090244697256ec10f09ef25a",
+  "sha256_output": "2103b2615f631c264d4cd03c8e4eaaed5f059b9948c87495c48b1ea909c82043",
+  "processor": "zip_glb",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T16:04:47.128366+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://sketchfab.com/3d-models/orion-spacecraft-fb89e865dcd446b89eaf78deaf213974",
+      "path": "data/raw/orion-spacecraft.zip",
+      "sha256": "dff68ea71e1cfa1b55528f5a556fae17e4aecdb2090244697256ec10f09ef25a"
+    }
+  ],
+  "archive_member": "source/orionspacecraft.glb"
+}

@@ -17,6 +17,7 @@ attribution = "Test Author"
 source_page = "https://example.com"
 processor = "passthrough"
 output = "one.png"
+asset_type = "textures"
 
 [[source]]
 id = "test_two"
@@ -28,6 +29,9 @@ attribution = "Another Author"
 source_page = "https://example.com/two"
 processor = "passthrough"
 output = "two.jpg"
+
+[source.config]
+kind = "fixture"
 """
 
 _MISSING_KEY_TOML = """\
@@ -45,8 +49,11 @@ def test_load_sources_valid(tmp_path: Path) -> None:
     assert len(sources) == 2
     assert sources[0].id == "test_one"
     assert sources[0].sha256 == "abc123"
+    assert sources[0].asset_type == "textures"
     assert sources[1].id == "test_two"
     assert sources[1].sha256 == ""
+    assert sources[1].download_normalizer == ""
+    assert sources[1].config == {"kind": "fixture"}
 
 
 def test_load_sources_empty(tmp_path: Path) -> None:
@@ -96,6 +103,7 @@ source_page = "https://example.com"
 processor = "saturn_rings_bjj"
 output = "scattering.png"
 extra_outputs = ["color.png"]
+asset_type = "textures"
 
 [[source.extra_files]]
 name = "backscattered"
@@ -106,6 +114,7 @@ sha256 = "def"
 name = "color"
 url = "https://example.com/color.txt"
 sha256 = ""
+download_normalizer = "jpl_horizons_json"
 """
 
 
@@ -121,7 +130,9 @@ def test_load_extra_files(tmp_path: Path) -> None:
     assert s.extra_files[0].sha256 == "def"
     assert s.extra_files[1].name == "color"
     assert s.extra_files[1].sha256 == ""
+    assert s.extra_files[1].download_normalizer == "jpl_horizons_json"
     assert s.extra_outputs == ("color.png",)
+    assert s.asset_type == "textures"
 
 
 def test_load_no_extra_files(tmp_path: Path) -> None:
@@ -131,3 +142,24 @@ def test_load_no_extra_files(tmp_path: Path) -> None:
     sources = load_sources(p)
     assert sources[0].extra_files == ()
     assert sources[0].extra_outputs == ()
+
+
+def test_load_download_normalizer(tmp_path: Path) -> None:
+    p = tmp_path / "sources.toml"
+    p.write_text(
+        """\
+[[source]]
+id = "normalized"
+description = "Normalized API source"
+url = "https://example.com/api"
+sha256 = "abc123"
+license = "Public Domain"
+attribution = "Test"
+source_page = "https://example.com"
+processor = "passthrough"
+output = "api.json"
+download_normalizer = "jpl_horizons_json"
+"""
+    )
+    sources = load_sources(p)
+    assert sources[0].download_normalizer == "jpl_horizons_json"

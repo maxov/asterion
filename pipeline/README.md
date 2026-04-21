@@ -1,6 +1,7 @@
-# Texture Processing Pipeline
+# Asset Processing Pipeline
 
-Downloads, processes, and installs planetary imagery for the Asterion renderer.
+Downloads, processes, and installs renderer assets for Asterion.
+Today that includes planetary textures and normalized mission-profile data.
 
 ## Bootstrap
 
@@ -17,7 +18,7 @@ Run from the `pipeline/` directory:
 # Fetch all sources
 uv run pipeline fetch
 
-# Process all sources (run processors, install to src/assets/textures/)
+# Process all sources (run processors, install to src/assets/<asset_type>/)
 uv run pipeline process
 
 # Fetch + process (default when no subcommand given)
@@ -25,6 +26,9 @@ uv run pipeline
 
 # Show source status
 uv run pipeline list
+
+# Copy processed assets to public/<asset_type>/ for runtime loading
+uv run pipeline install
 
 # Fetch a single source
 uv run pipeline fetch --source saturn_body_bjj
@@ -36,7 +40,7 @@ uv run pipeline process --source saturn_body_bjj
 uv run pipeline attribution
 ```
 
-## Recommended sources
+## Recommended texture sources
 
 **Ring textures:** `saturn_rings_bjj` is the preferred source — Björn Jónsson's raw
 1D profile data provides separate backscattered, forward-scattered, and unlit-side
@@ -54,6 +58,93 @@ and `saturn_rings_ppe` entries are fallbacks that produce a single combined ring
 | `saturn_rings_bjj` | Björn Jónsson's raw ring profiles (5 files) | Ready (preferred) |
 | `saturn_rings_fargetanik` | FarGetaNik's 13K combined RGBA ring texture | Local-only (manual download) |
 | `saturn_rings_ppe` | Planet Pixel Emporium color + transparency rings | URLs need filling in |
+
+## Mission assets
+
+Mission data uses the same `[[source]]` registry and provenance flow as textures,
+but writes into `src/assets/missions/` and `public/missions/`.
+
+There are now two supported mission patterns:
+
+- `mission_profile` for declarative/nominal mission paths where the renderer
+  synthesizes the curve from metadata.
+- `jpl_horizons_mission` for missions backed by sampled JPL Horizons vectors.
+
+Mission profile sources use `asset_type = "missions"` and a nested `[source.config]`
+table for the normalized mission metadata:
+
+```toml
+[[source]]
+id = "example_mission"
+description = "Nominal mission profile"
+url = "https://example.com/mission-reference.pdf"
+sha256 = ""
+license = "Public Domain"
+attribution = "NASA"
+source_page = "https://example.com"
+processor = "mission_profile"
+asset_type = "missions"
+output = "example_mission.json"
+
+[source.config]
+mission_id = "example"
+mission_name = "Example Mission"
+trajectory_model = "earth-moon-free-return-v1"
+launch_utc = "2026-01-01T00:00:00Z"
+duration_seconds = 86400
+streak_window_seconds = 172800
+
+[source.config.parameters]
+tli_seconds = 3600
+lunar_sphere_entry_seconds = 250000
+closest_approach_seconds = 300000
+closest_approach_altitude_km = 10000
+lunar_sphere_exit_seconds = 360000
+
+[[source.config.events]]
+id = "launch"
+label = "Launch"
+t_plus_seconds = 0
+```
+
+Horizons-backed mission sources follow the same metadata shape, but use the
+Horizons API as the primary raw input and optionally attach PDFs or other files
+as `extra_files` for supporting provenance:
+
+```toml
+[[source]]
+id = "example_mission_horizons"
+description = "Mission vectors from JPL Horizons"
+url = "https://ssd.jpl.nasa.gov/api/horizons.api?...fixed query..."
+sha256 = ""
+license = "Public Domain"
+attribution = "NASA/JPL Solar System Dynamics"
+source_page = "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
+processor = "jpl_horizons_mission"
+asset_type = "missions"
+download_normalizer = "jpl_horizons_json"
+output = "example_mission.json"
+
+[[source.extra_files]]
+name = "press_kit"
+url = "https://example.com/mission-press-kit.pdf"
+sha256 = ""
+
+[source.config]
+mission_id = "example"
+mission_name = "Example Mission"
+launch_utc = "2026-01-01T00:00:00Z"
+duration_seconds = 86400
+
+[[source.config.events]]
+id = "launch"
+label = "Launch"
+t_plus_seconds = 0
+```
+
+`download_normalizer = "jpl_horizons_json"` canonicalizes volatile Horizons
+headers such as request-time banners before hashing, so the fetched raw snapshot
+stays reproducible and provenance-friendly.
 
 ## Scattering texture channel layout
 
@@ -119,13 +210,19 @@ Notebooks live in `notebooks/`. See `notebooks/README.md` for conventions.
    uv run pipeline fetch --source my_new_source --record
    ```
 
-3. Process to install the texture:
+3. Process the source:
 
    ```sh
    uv run pipeline process --source my_new_source
    ```
 
-4. Commit the updated `sources.toml`, the output texture in `src/assets/textures/`,
+4. Install runtime copies if the frontend loads from `public/`:
+
+   ```sh
+   uv run pipeline install
+   ```
+
+5. Commit the updated `sources.toml`, the output asset in `src/assets/<asset_type>/`,
    and its `.provenance.json` sidecar.
 
 ## Local-only sources
@@ -142,29 +239,34 @@ Some sources (e.g., DeviantArt) can't be fetched programmatically. These have
 ## Attribution
 
 Run `uv run pipeline attribution` to regenerate `ATTRIBUTION.md` at the repo root.
-This reads all `*.provenance.json` files under `src/assets/textures/` and produces
-a markdown table with texture name, source, license, attribution, and source page.
+This reads all `*.provenance.json` files under `src/assets/` and produces
+a markdown table with asset type, asset name, source, license, attribution,
+and source page.
 
 ## Where outputs land
 
 - `data/raw/` — downloaded files (gitignored, re-fetchable)
 - `data/intermediate/` — processor working files (gitignored)
-- `src/assets/textures/` — final textures (committed) with `.provenance.json` sidecars
+- `src/assets/<asset_type>/` — final committed assets with `.provenance.json` sidecars
+- `public/<asset_type>/` — runtime copies served directly by Vite
 
 Raw and intermediate data are not committed because they can be reproduced
-from the source URLs. The final textures and provenance files are committed
-so the frontend works without running the pipeline.
+from the source URLs. The final processed assets and provenance files are
+committed so the frontend works without rerunning the pipeline.
 
 ## Processors
 
-Processors transform raw downloads into final textures. Currently available:
+Processors transform raw downloads into final assets. Currently available:
 
 - **`moon_height`** — converts LOLA-derived Moon displacement TIFFs into browser-friendly linear grayscale PNG height maps
 - **`earth_clouds`** — derives an RGBA Earth cloud layer from paired NASA SVS equirectangular maps
+- **`jpl_horizons_mission`** — converts JPL Horizons vector-table responses into sampled mission trajectory assets
+- **`mission_profile`** — normalizes declarative mission metadata into a frontend mission asset JSON
 - **`passthrough`** — copies the file, stripping EXIF/image metadata
 - **`saturn_body`** — validates 2:1 equirectangular maps, converts to RGB, optional resize, outputs JPG/PNG
 - **`saturn_rings`** — combines ring textures into a 1px-high RGBA PNG strip (supports `combined_rgba` and `color_plus_transparency` input modes)
 - **`saturn_rings_bjj`** — builds scattering (RGBA) and color (RGB) textures from Björn Jónsson's raw 1D ring profiles (5 text files, 13177 samples each)
+- **`zip_glb`** — extracts a GLB member from a zip archive for manually downloaded model assets
 
 Processors are registered in `src/pipeline/processors/__init__.py`. To add one,
 create a new module in `processors/` and add it to the `PROCESSORS` dict.

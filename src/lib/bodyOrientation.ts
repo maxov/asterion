@@ -8,6 +8,7 @@ const J2000_UTC_MS = Date.UTC(2000, 0, 1, 12, 0, 0, 0);
 const LOOK_AT_MATRIX = new Matrix4();
 const ORIENTATION_MATRIX = new Matrix4();
 const LOCAL_ORIGIN = new Vector3();
+const LOCAL_Y_AXIS = new Vector3(0, 1, 0);
 const EARTH_OBLIQUITY_RAD = MathUtils.degToRad(23.439281);
 const EARTH_NORTH_POLE_WORLD = new Vector3(
   0,
@@ -16,6 +17,10 @@ const EARTH_NORTH_POLE_WORLD = new Vector3(
 );
 const EARTH_GREENWICH_AXIS = new Vector3();
 const EARTH_WEST_AXIS = new Vector3();
+const SYNCHRONOUS_SURFACE_ALIGNMENT = new Quaternion().setFromAxisAngle(
+  LOCAL_Y_AXIS,
+  -Math.PI / 2,
+);
 
 function wrapAngleRad(angle: number) {
   const turn = Math.PI * 2;
@@ -86,5 +91,9 @@ export function setSynchronousQuaternion(
 
   LOOK_AT_MATRIX.lookAt(directionToParent, LOCAL_ORIGIN, up);
   target.setFromRotationMatrix(LOOK_AT_MATRIX);
+  // SphereGeometry maps the center of an equirectangular texture to local +X,
+  // while lookAt aligns local +Z toward the parent. Apply a fixed local yaw so
+  // the texture's central meridian faces the parent body.
+  target.multiply(SYNCHRONOUS_SURFACE_ALIGNMENT);
   return target;
 }

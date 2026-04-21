@@ -16,6 +16,7 @@ import {
   DEFAULT_FOCUS_BODY_ID,
   type BodyId,
 } from "./lib/bodies.ts";
+import { MISSION_REGISTRY, type MissionRegistryEntry } from "./lib/missions.ts";
 import {
   DEFAULT_EXPOSURE,
   CAMERA_FOV,
@@ -26,8 +27,6 @@ import {
 import {
   createSimulationTimeline,
   currentSimulationDateMs,
-  formatLocalDateTimeInputValue,
-  parseLocalDateTimeInputValue,
   REALTIME_DAYS_PER_SECOND,
   rebaseSimulationTimeline,
   timelineSystemMs,
@@ -43,12 +42,12 @@ const DEFAULT_CAM_POS = kmVecToUnits([
   CAMERA_DEFAULT_POSITION_KM[1] * DEFAULT_CAMERA_DISTANCE_SCALE,
   CAMERA_DEFAULT_POSITION_KM[2] * DEFAULT_CAMERA_DISTANCE_SCALE,
 ]);
-const HOUR_MS = 3_600_000;
-const DAY_MS = 24 * HOUR_MS;
 const HUD_IDLE_MS = 1_200;
 const LEVA_PANEL_WIDTH = "20rem";
 const HUD_HOT_CORNER_WIDTH = 128;
 const HUD_HOT_CORNER_HEIGHT = 96;
+const HUD_HOT_LEFT_EDGE_WIDTH = 48;
+const HUD_HOT_LEFT_EDGE_HEIGHT = 300;
 const HUD_FONT_FAMILY =
   '"JetBrains Mono", "SF Mono", "Fira Code", monospace';
 const HUD_MONO_FAMILY =
@@ -56,24 +55,86 @@ const HUD_MONO_FAMILY =
 const HUD_TEXT_MUTED = "rgba(245, 247, 250, 0.6)";
 const HUD_TEXT_ACTIVE = "rgba(245, 247, 250, 0.95)";
 const HUD_TEXT_SUBTLE = "rgba(208, 216, 227, 0.5)";
-const FOCUS_BODY_OPTIONS = Object.values(BODY_DEFINITIONS);
-const TIME_RATE_PRESETS = [
-  { label: "Realtime", daysPerSecond: REALTIME_DAYS_PER_SECOND },
+const MISSION_BODY_IDS = new Set(MISSION_REGISTRY.map((m) => m.id));
+const FOCUS_BODY_OPTIONS = Object.values(BODY_DEFINITIONS).filter(
+  (b) => !MISSION_BODY_IDS.has(b.id),
+);
+// Tick marks shown on the strip (decorative only, no snapping).
+const STRIP_TICKS = [
+  { label: "-1mo/s", daysPerSecond: -30 },
+  { label: "-1w/s", daysPerSecond: -7 },
+  { label: "-1d/s", daysPerSecond: -1 },
+  { label: "-1h/s", daysPerSecond: -1 / 24 },
+  { label: "-1min/s", daysPerSecond: -1 / 1440 },
+  { label: "-1s/s", daysPerSecond: -REALTIME_DAYS_PER_SECOND },
+  { label: "0/s", daysPerSecond: 0 },
+  { label: "1s/s", daysPerSecond: REALTIME_DAYS_PER_SECOND },
+  { label: "1min/s", daysPerSecond: 1 / 1440 },
   { label: "1h/s", daysPerSecond: 1 / 24 },
   { label: "1d/s", daysPerSecond: 1 },
-  { label: "10d/s", daysPerSecond: 10 },
-  { label: "-1d/s", daysPerSecond: -1 },
+  { label: "1w/s", daysPerSecond: 7 },
+  { label: "1mo/s", daysPerSecond: 30 },
 ] as const;
+const STRIP_PAUSE_TICK = 6;
+
+// Exponential mapping: position ↔ speed.
+// Position [0, 1] maps to speed [-MAX_DPS, +MAX_DPS] with a dead zone
+// around center for pause. Each half uses a log scale so every order of
+// magnitude gets roughly equal space on the strip.
+const STRIP_MIN_DPS = REALTIME_DAYS_PER_SECOND; // 1s/s
+const STRIP_MAX_DPS = 30; // 1mo/s
+const STRIP_LOG_RANGE = Math.log(STRIP_MAX_DPS / STRIP_MIN_DPS);
+const STRIP_DEAD_ZONE = 0.03; // ±3% of track around center = pause
+
+function speedToPosition(dps: number, isPlaying: boolean): number {
+  if (!isPlaying) return 0.5;
+  const abs = Math.abs(dps);
+  if (abs < STRIP_MIN_DPS) return 0.5;
+  const t = Math.min(1, Math.log(abs / STRIP_MIN_DPS) / STRIP_LOG_RANGE);
+  const half = STRIP_DEAD_ZONE + t * (0.5 - STRIP_DEAD_ZONE);
+  return dps > 0 ? 0.5 + half : 0.5 - half;
+}
+
+function positionToSpeed(pos: number): { daysPerSecond: number; isPlaying: boolean } {
+  const offset = pos - 0.5;
+  if (Math.abs(offset) <= STRIP_DEAD_ZONE) return { daysPerSecond: 0, isPlaying: false };
+  const sign = offset > 0 ? 1 : -1;
+  const t = (Math.abs(offset) - STRIP_DEAD_ZONE) / (0.5 - STRIP_DEAD_ZONE);
+  const dps = STRIP_MIN_DPS * Math.exp(t * STRIP_LOG_RANGE);
+  return { daysPerSecond: sign * dps, isPlaying: true };
+}
+
+function formatSpeed(dps: number, isPlaying: boolean): string {
+  if (!isPlaying) return "0/s";
+  const abs = Math.abs(dps);
+  const sign = dps < 0 ? "-" : "";
+  if (abs >= 7) {
+    const mo = abs / 30;
+    if (mo >= 0.95) return `${sign}${mo < 10 ? mo.toFixed(1) : Math.round(mo)}mo/s`;
+    const w = abs / 7;
+    return `${sign}${w < 10 ? w.toFixed(1) : Math.round(w)}w/s`;
+  }
+  if (abs >= 1) return `${sign}${abs < 10 ? abs.toFixed(1) : Math.round(abs)}d/s`;
+  if (abs >= 1 / 24) {
+    const h = abs * 24;
+    return `${sign}${h < 10 ? h.toFixed(1) : Math.round(h)}h/s`;
+  }
+  if (abs >= 1 / 1440) {
+    const m = abs * 1440;
+    return `${sign}${m < 10 ? m.toFixed(1) : Math.round(m)}min/s`;
+  }
+  const s = abs * 86400;
+  return `${sign}${s < 10 ? s.toFixed(1) : Math.round(s)}s/s`;
+}
 
 type TimeHudControlProps = {
-  open: boolean;
-  onOpenChange: Dispatch<SetStateAction<boolean>>;
   timeline: SimulationTimeline;
   setTimeline: Dispatch<SetStateAction<SimulationTimeline>>;
 };
 
 type FocusHudControlProps = {
   focusBodyId: BodyId;
+  activeMissionId: string | null;
   onFocusBodyChange: (focusBodyId: BodyId) => void;
 };
 
@@ -108,30 +169,6 @@ function hudIconButtonStyle(active: boolean): CSSProperties {
   };
 }
 
-function hudChipButtonStyle(active = false, disabled = false): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "1.9rem",
-    padding: "0 0.7rem",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    borderRadius: "999px",
-    background: active ? "rgba(255, 255, 255, 0.12)" : "rgba(255, 255, 255, 0.04)",
-    color: active ? HUD_TEXT_ACTIVE : HUD_TEXT_MUTED,
-    cursor: disabled ? "not-allowed" : "pointer",
-    fontFamily: HUD_FONT_FAMILY,
-    fontSize: "0.68rem",
-    fontWeight: 400,
-    letterSpacing: "0.02em",
-    opacity: disabled ? 0.4 : 1,
-    transition: "background 180ms ease, color 180ms ease, opacity 180ms ease",
-  };
-}
-
-function matchesRate(a: number, b: number) {
-  return Math.abs(a - b) < 1e-6;
-}
 
 function formatHudClockTime(dateMs: number) {
   return new Intl.DateTimeFormat(undefined, {
@@ -151,20 +188,7 @@ function formatHudCalendarDate(dateMs: number) {
   }).format(new Date(dateMs));
 }
 
-function formatPlaybackStatus(timeline: SimulationTimeline): string | null {
-  if (!timeline.isPlaying) return "Paused";
-  if (matchesRate(timeline.daysPerSecond, REALTIME_DAYS_PER_SECOND)) {
-    return null;
-  }
 
-  const absDaysPerSecond = Math.abs(timeline.daysPerSecond);
-  const direction = timeline.daysPerSecond < 0 ? "backward" : "forward";
-  if (absDaysPerSecond < 1) {
-    return `Running ${direction} at ${(absDaysPerSecond * 24).toFixed(1)} h/s`;
-  }
-
-  return `Running ${direction} at ${absDaysPerSecond.toFixed(absDaysPerSecond < 10 ? 1 : 0)} d/s`;
-}
 
 const HUD_FADE_MS = 400;
 
@@ -184,6 +208,7 @@ function useDeferredOpen(open: boolean) {
 
 function FocusHudControl({
   focusBodyId,
+  activeMissionId,
   onFocusBodyChange,
 }: FocusHudControlProps) {
   const [open, setOpen] = useState(false);
@@ -204,8 +229,14 @@ function FocusHudControl({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
+  const activeMission = activeMissionId
+    ? MISSION_REGISTRY.find((m) => m.id === activeMissionId)
+    : null;
+
   const currentLabel =
-    FOCUS_BODY_OPTIONS.find((b) => b.id === focusBodyId)?.label ?? focusBodyId;
+    FOCUS_BODY_OPTIONS.find((b) => b.id === focusBodyId)?.label
+    ?? activeMission?.label
+    ?? focusBodyId;
 
   const trigger = (
     <button
@@ -251,21 +282,31 @@ function FocusHudControl({
   return (
     <div
       ref={containerRef}
-      style={{
-        ...hudSurfaceStyle("0.6rem", visible),
-        fontFamily: HUD_FONT_FAMILY,
-        color: HUD_TEXT_ACTIVE,
-        minWidth: mounted ? "10rem" : undefined,
-        display: "grid",
-        gap: "0.1rem",
-      }}
+      style={{ position: "relative" }}
     >
-      {trigger}
+      <div
+        style={{
+          ...hudSurfaceStyle("0.6rem", true),
+          fontFamily: HUD_FONT_FAMILY,
+          color: HUD_TEXT_ACTIVE,
+        }}
+      >
+        {trigger}
+      </div>
       {mounted && (
         <div
           style={{
+            ...hudSurfaceStyle("0.6rem", true),
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: "0.35rem",
+            fontFamily: HUD_FONT_FAMILY,
+            color: HUD_TEXT_ACTIVE,
+            minWidth: "10rem",
             display: "grid",
             gap: "0.1rem",
+            padding: "0.3rem",
             opacity: visible ? 1 : 0,
             transition: `opacity ${HUD_FADE_MS}ms ease`,
           }}
@@ -312,7 +353,225 @@ function FocusHudControl({
               </button>
             );
           })}
-          <div style={{ height: "0.15rem" }} />
+          {activeMission && (() => {
+            const selected = activeMission.id === focusBodyId;
+            return (
+              <button
+                key={activeMission.id}
+                role="option"
+                aria-selected={selected}
+                type="button"
+                onClick={() => {
+                  onFocusBodyChange(activeMission.id);
+                  setOpen(false);
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "0.4rem 0.6rem",
+                  border: "none",
+                  borderRadius: "0.35rem",
+                  background: selected
+                    ? "rgba(255, 255, 255, 0.1)"
+                    : "transparent",
+                  color: selected ? HUD_TEXT_ACTIVE : HUD_TEXT_MUTED,
+                  cursor: "pointer",
+                  fontFamily: HUD_FONT_FAMILY,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.02em",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected)
+                    e.currentTarget.style.background =
+                      "rgba(255, 255, 255, 0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!selected)
+                    e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {activeMission.label}
+              </button>
+            );
+          })()}
+        </div>
+      )}
+    </div>
+  );
+}
+
+type SearchResult =
+  | { type: "body"; body: (typeof FOCUS_BODY_OPTIONS)[number] }
+  | { type: "mission"; mission: MissionRegistryEntry };
+
+const ALL_SEARCH_ITEMS: SearchResult[] = [
+  ...FOCUS_BODY_OPTIONS.map(
+    (body) => ({ type: "body", body }) as SearchResult,
+  ),
+  ...MISSION_REGISTRY.map(
+    (mission) => ({ type: "mission", mission }) as SearchResult,
+  ),
+];
+
+function searchLabel(item: SearchResult) {
+  return item.type === "body" ? item.body.label : item.mission.label;
+}
+
+type SearchHudControlProps = {
+  onSelectBody: (bodyId: BodyId) => void;
+  onSelectMission: (mission: MissionRegistryEntry) => void;
+};
+
+function SearchHudControl({
+  onSelectBody,
+  onSelectMission,
+}: SearchHudControlProps) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const { mounted, visible } = useDeferredOpen(open);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      setQuery("");
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [open]);
+
+  const filtered = query.trim()
+    ? ALL_SEARCH_ITEMS.filter((item) =>
+        searchLabel(item).toLowerCase().includes(query.trim().toLowerCase()),
+      )
+    : ALL_SEARCH_ITEMS;
+
+  return (
+    <div ref={containerRef} style={{ position: "relative" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={hudIconButtonStyle(open)}
+        aria-label="Search"
+        title="Search"
+      >
+        <SearchIcon />
+      </button>
+      {mounted && (
+        <div
+          style={{
+            ...hudSurfaceStyle("0.6rem", true),
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            marginTop: "0.35rem",
+            fontFamily: HUD_FONT_FAMILY,
+            color: HUD_TEXT_ACTIVE,
+            minWidth: "12rem",
+            display: "grid",
+            gap: "0.1rem",
+            padding: "0.3rem",
+            opacity: visible ? 1 : 0,
+            transition: `opacity ${HUD_FADE_MS}ms ease`,
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search..."
+            style={{
+              width: "100%",
+              padding: "0.35rem 0.5rem",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "0.35rem",
+              background: "rgba(255, 255, 255, 0.05)",
+              color: HUD_TEXT_ACTIVE,
+              fontFamily: HUD_FONT_FAMILY,
+              fontSize: "0.72rem",
+              letterSpacing: "0.02em",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+          <div
+            style={{
+              display: "grid",
+              gap: "0.1rem",
+              maxHeight: "14rem",
+              overflowY: "auto",
+            }}
+          >
+            {filtered.map((item) => (
+              <button
+                key={
+                  item.type === "body"
+                    ? `body:${item.body.id}`
+                    : `mission:${item.mission.id}`
+                }
+                type="button"
+                onClick={() => {
+                  if (item.type === "body") {
+                    onSelectBody(item.body.id);
+                  } else {
+                    onSelectMission(item.mission);
+                  }
+                  setOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.5rem",
+                  width: "100%",
+                  padding: "0.4rem 0.5rem",
+                  border: "none",
+                  borderRadius: "0.35rem",
+                  background: "transparent",
+                  color: HUD_TEXT_MUTED,
+                  cursor: "pointer",
+                  fontFamily: HUD_FONT_FAMILY,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.02em",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background =
+                    "rgba(255, 255, 255, 0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {searchLabel(item)}
+                {item.type === "mission" && (
+                  <span
+                    style={{
+                      fontSize: "0.6rem",
+                      color: HUD_TEXT_SUBTLE,
+                      marginLeft: "auto",
+                    }}
+                  >
+                    mission
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -447,45 +706,42 @@ function FullscreenIcon({ active = false }: { active?: boolean }) {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
 function TimeHudControl({
-  open,
-  onOpenChange,
   timeline,
   setTimeline,
 }: TimeHudControlProps) {
-  const { mounted, visible } = useDeferredOpen(open);
   const [displaySystemMs, setDisplaySystemMs] = useState(() => timelineSystemMs());
-  const [isEditingTime, setIsEditingTime] = useState(false);
   const currentDateMs = currentSimulationDateMs(timeline, displaySystemMs);
-  const [timeDraft, setTimeDraft] = useState(() =>
-    formatLocalDateTimeInputValue(currentDateMs),
-  );
-  const isDraftValid = parseLocalDateTimeInputValue(timeDraft) !== null;
-  const timeInputValue = isEditingTime
-    ? timeDraft
-    : formatLocalDateTimeInputValue(currentDateMs);
-  const playbackStatus = formatPlaybackStatus(timeline);
   const heroTime = formatHudClockTime(currentDateMs);
   const heroDate = formatHudCalendarDate(currentDateMs);
+  const speedLabel = formatSpeed(timeline.daysPerSecond, timeline.isPlaying);
 
-  const updateTimeline = useCallback(
-    (updates: Partial<Omit<SimulationTimeline, "anchorSystemMs">>) => {
-      setTimeline((current) =>
-        rebaseSimulationTimeline(current, updates, timelineSystemMs()),
-      );
-    },
-    [setTimeline],
-  );
-
-  const shiftTimeline = useCallback(
-    (deltaMs: number) => {
+  const onSpeedChange = useCallback(
+    (speed: { daysPerSecond: number; isPlaying: boolean }) => {
       setTimeline((current) => {
         const systemMs = timelineSystemMs();
         return rebaseSimulationTimeline(
           current,
-          {
-            anchorDateMs: currentSimulationDateMs(current, systemMs) + deltaMs,
-          },
+          { daysPerSecond: speed.daysPerSecond, isPlaying: speed.isPlaying },
           systemMs,
         );
       });
@@ -493,67 +749,44 @@ function TimeHudControl({
     [setTimeline],
   );
 
-  const applyDraftTime = useCallback(() => {
-    const parsed = parseLocalDateTimeInputValue(timeDraft);
-    if (parsed === null) return;
-
-    updateTimeline({ anchorDateMs: parsed });
-    setIsEditingTime(false);
-  }, [timeDraft, updateTimeline]);
-
-  const togglePlayback = useCallback(() => {
-    setTimeline((current) =>
-      rebaseSimulationTimeline(
-        current,
-        { isPlaying: !current.isPlaying },
-        timelineSystemMs(),
-      ),
-    );
-  }, [setTimeline]);
-
-  const jumpToNow = useCallback(() => {
-    updateTimeline({
-      anchorDateMs: Date.now(),
-      daysPerSecond: REALTIME_DAYS_PER_SECOND,
-      isPlaying: true,
-    });
-  }, [updateTimeline]);
-
   useEffect(() => {
     const interval = window.setInterval(() => {
       setDisplaySystemMs(timelineSystemMs());
     }, 250);
-
     return () => {
       window.clearInterval(interval);
     };
   }, []);
 
-  const trigger = (
-    <button
-      type="button"
-      onClick={() => {
-        onOpenChange((v) => !v);
-      }}
+  const thumbPos = speedToPosition(timeline.daysPerSecond, timeline.isPlaying);
+
+  return (
+    <div
       style={{
-        display: "inline-flex",
+        display: "flex",
         alignItems: "center",
-        gap: "0.4rem",
-        padding: "0.4rem 0.1rem",
-        background: "none",
-        border: "none",
-        color: open ? HUD_TEXT_ACTIVE : HUD_TEXT_MUTED,
-        cursor: "pointer",
+        gap: "0.55rem",
+        color: HUD_TEXT_ACTIVE,
         fontFamily: HUD_FONT_FAMILY,
-        textAlign: "right",
-        transition: "color 180ms ease",
       }}
-      aria-expanded={open}
-      aria-haspopup="dialog"
-      aria-label="Toggle time controls"
-      title="Open time controls"
     >
-      <div style={{ display: "grid", gap: "0.1rem" }}>
+      <span
+        style={{
+          color: HUD_TEXT_MUTED,
+          fontFamily: HUD_MONO_FAMILY,
+          fontSize: "0.85rem",
+          fontWeight: 400,
+          letterSpacing: "0.03em",
+          fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
+          minWidth: "4.5rem",
+          textAlign: "right",
+        }}
+      >
+        {speedLabel}
+      </span>
+      <SpeedStrip thumbPos={thumbPos} onSpeedChange={onSpeedChange} />
+      <div style={{ display: "grid", gap: "0.05rem" }}>
         <span
           style={{
             color: HUD_TEXT_ACTIVE,
@@ -576,198 +809,131 @@ function TimeHudControl({
             textAlign: "right",
           }}
         >
-          {heroDate}{playbackStatus ? ` · ${playbackStatus}` : ""}
+          {heroDate}
         </span>
       </div>
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: "1.1rem",
-          height: "1.1rem",
-          color: HUD_TEXT_SUBTLE,
-          fontSize: "1.1rem",
-          lineHeight: 1,
-          transition: "transform 200ms ease",
-          transform: open ? "rotate(90deg)" : "none",
-          flexShrink: 0,
-        }}
-      >
-        ▸
-      </span>
-    </button>
+    </div>
+  );
+}
+
+const STRIP_TRACK_HEIGHT = 3;
+const STRIP_THUMB_SIZE = 14;
+const STRIP_TICK_HEIGHT = 16;
+const STRIP_CENTER_TICK_HEIGHT = 24;
+const STRIP_HIT_HEIGHT = 32;
+
+function SpeedStrip({
+  thumbPos,
+  onSpeedChange,
+}: {
+  thumbPos: number;
+  onSpeedChange: (speed: { daysPerSecond: number; isPlaying: boolean }) => void;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
+
+  const posFromPointer = useCallback((clientX: number) => {
+    const track = trackRef.current;
+    if (!track) return 0.5;
+    const rect = track.getBoundingClientRect();
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  }, []);
+
+  const onPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      e.preventDefault();
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+      draggingRef.current = true;
+      onSpeedChange(positionToSpeed(posFromPointer(e.clientX)));
+    },
+    [posFromPointer, onSpeedChange],
+  );
+
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent) => {
+      if (!draggingRef.current) return;
+      onSpeedChange(positionToSpeed(posFromPointer(e.clientX)));
+    },
+    [posFromPointer, onSpeedChange],
+  );
+
+  const onPointerUp = useCallback(() => {
+    draggingRef.current = false;
+  }, []);
+
+  const speedLabel = formatSpeed(
+    positionToSpeed(thumbPos).daysPerSecond,
+    positionToSpeed(thumbPos).isPlaying,
   );
 
   return (
     <div
+      ref={trackRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
       style={{
-        ...hudSurfaceStyle("0.75rem", visible),
-        width: mounted ? "min(22rem, calc(100vw - 2rem))" : undefined,
-        display: "grid",
-        color: HUD_TEXT_ACTIVE,
-        fontFamily: HUD_FONT_FAMILY,
+        position: "relative",
+        width: "20rem",
+        height: `${STRIP_HIT_HEIGHT}px`,
+        cursor: "pointer",
+        touchAction: "none",
+        display: "flex",
+        alignItems: "center",
       }}
+      aria-label="Speed control"
+      role="slider"
+      aria-valuetext={speedLabel}
     >
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        {trigger}
-      </div>
-
-      {mounted && (
-        <div
-          style={{
-            display: "grid",
-            gap: "0.7rem",
-            opacity: visible ? 1 : 0,
-            transition: `opacity ${HUD_FADE_MS}ms ease`,
-            padding: "0.7rem 0.85rem 0.85rem",
-          }}
-        >
-          <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={togglePlayback}
-              style={hudChipButtonStyle(timeline.isPlaying)}
-            >
-              {timeline.isPlaying ? "Pause" : "Resume"}
-            </button>
-            <button
-              type="button"
-              onClick={jumpToNow}
-              style={hudChipButtonStyle(false)}
-            >
-              Now
-            </button>
-            {TIME_RATE_PRESETS.map((preset) => {
-              const active =
-                timeline.isPlaying &&
-                matchesRate(timeline.daysPerSecond, preset.daysPerSecond);
-
-              return (
-                <button
-                  key={preset.label}
-                  type="button"
-                  onClick={() => {
-                    updateTimeline({
-                      daysPerSecond: preset.daysPerSecond,
-                      isPlaying: true,
-                    });
-                  }}
-                  style={hudChipButtonStyle(active)}
-                >
-                  {preset.label}
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => {
-                shiftTimeline(-7 * DAY_MS);
-              }}
-              style={hudChipButtonStyle(false)}
-            >
-              -1w
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                shiftTimeline(-DAY_MS);
-              }}
-              style={hudChipButtonStyle(false)}
-            >
-              -1d
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                shiftTimeline(-HOUR_MS);
-              }}
-              style={hudChipButtonStyle(false)}
-            >
-              -1h
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                shiftTimeline(HOUR_MS);
-              }}
-              style={hudChipButtonStyle(false)}
-            >
-              +1h
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                shiftTimeline(DAY_MS);
-              }}
-              style={hudChipButtonStyle(false)}
-            >
-              +1d
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                shiftTimeline(7 * DAY_MS);
-              }}
-              style={hudChipButtonStyle(false)}
-            >
-              +1w
-            </button>
-          </div>
-
-          <div style={{ display: "flex", gap: "0.4rem" }}>
-            <input
-              type="datetime-local"
-              step={1}
-              value={timeInputValue}
-              onChange={(event) => {
-                setTimeDraft(event.target.value);
-              }}
-              onFocus={() => {
-                setTimeDraft(formatLocalDateTimeInputValue(currentDateMs));
-                setIsEditingTime(true);
-              }}
-              onBlur={() => {
-                setIsEditingTime(false);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  applyDraftTime();
-                }
-              }}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                height: "2.1rem",
-                padding: "0 0.65rem",
-                borderRadius: "0.6rem",
-                border: isDraftValid
-                  ? "1px solid rgba(255, 255, 255, 0.08)"
-                  : "1px solid rgba(255, 117, 117, 0.5)",
-                background: "rgba(255, 255, 255, 0.04)",
-                color: HUD_TEXT_ACTIVE,
-                colorScheme: "dark",
-                fontFamily: HUD_MONO_FAMILY,
-                fontSize: "0.72rem",
-                letterSpacing: "0.03em",
-                fontVariantNumeric: "tabular-nums",
-              }}
-              aria-label="Set local time"
-            />
-            <button
-              type="button"
-              onClick={applyDraftTime}
-              disabled={!isDraftValid}
-              style={hudChipButtonStyle(false, !isDraftValid)}
-            >
-              Apply
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Track */}
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          height: `${STRIP_TRACK_HEIGHT}px`,
+          borderRadius: `${STRIP_TRACK_HEIGHT}px`,
+          background: "rgba(255, 255, 255, 0.2)",
+        }}
+      />
+      {/* Ticks (decorative) */}
+      {STRIP_TICKS.map((tick, i) => {
+        const isCenter = i === STRIP_PAUSE_TICK;
+        const tickH = isCenter ? STRIP_CENTER_TICK_HEIGHT : STRIP_TICK_HEIGHT;
+        const pos = speedToPosition(tick.daysPerSecond, tick.daysPerSecond !== 0);
+        return (
+          <div
+            key={i}
+            style={{
+              position: "absolute",
+              left: `${pos * 100}%`,
+              width: isCenter ? "4px" : "3px",
+              height: `${tickH}px`,
+              borderRadius: "1px",
+              transform: `translateX(-${isCenter ? 2 : 1.5}px)`,
+              background: isCenter
+                ? "rgba(255, 255, 255, 0.5)"
+                : "rgba(255, 255, 255, 0.25)",
+              top: `${(STRIP_HIT_HEIGHT - tickH) / 2}px`,
+            }}
+          />
+        );
+      })}
+      {/* Thumb */}
+      <div
+        style={{
+          position: "absolute",
+          left: `${thumbPos * 100}%`,
+          width: `${STRIP_THUMB_SIZE}px`,
+          height: `${STRIP_THUMB_SIZE}px`,
+          borderRadius: "50%",
+          background: HUD_TEXT_ACTIVE,
+          transform: "translateX(-50%)",
+          transition: draggingRef.current ? "none" : "left 120ms ease",
+          boxShadow: "0 0 4px rgba(0, 0, 0, 0.4)",
+        }}
+      />
     </div>
   );
 }
@@ -833,10 +999,13 @@ function useAmbientHud(persist = false) {
     };
 
     const isInHudHotCorner = (event: PointerEvent) => {
-      return (
+      const topRight =
         event.clientX >= window.innerWidth - HUD_HOT_CORNER_WIDTH &&
-        event.clientY <= HUD_HOT_CORNER_HEIGHT
-      );
+        event.clientY <= HUD_HOT_CORNER_HEIGHT;
+      const leftEdge =
+        event.clientX <= HUD_HOT_LEFT_EDGE_WIDTH &&
+        event.clientY <= HUD_HOT_LEFT_EDGE_HEIGHT;
+      return topRight || leftEdge;
     };
 
     const onPointerMove = (event: PointerEvent) => {
@@ -868,20 +1037,200 @@ function useAmbientHud(persist = false) {
   return visible;
 }
 
+// ---------------------------------------------------------------------------
+// Scale bar
+// ---------------------------------------------------------------------------
+
+const SCALE_FOV_RAD = (CAMERA_FOV * Math.PI) / 180;
+const SCALE_KM_PER_UNIT = 1_000;
+const SCALE_TARGET_PX = 120; // ideal bar width in pixels
+const SCALE_NICE = [1, 2, 5]; // multiplied by powers of 10
+
+/** Pick a "nice" round number <= value from the 1-2-5 series. */
+function niceFloor(value: number): number {
+  const exp = Math.pow(10, Math.floor(Math.log10(value)));
+  const mantissa = value / exp;
+  let nice = 1;
+  for (const n of SCALE_NICE) {
+    if (n <= mantissa) nice = n;
+  }
+  return nice * exp;
+}
+
+function formatScaleLabel(km: number): string {
+  if (km >= 1e6) return `${+(km / 1e6).toPrecision(3)}M km`;
+  if (km >= 1) return `${+km.toPrecision(3)} km`;
+  const m = km * 1000;
+  if (m >= 1) return `${+m.toPrecision(3)} m`;
+  return `${+(m * 100).toPrecision(3)} cm`;
+}
+
+function ScaleBar({
+  cameraDistanceRef,
+  hudVisible,
+}: {
+  cameraDistanceRef: { readonly current: number };
+  hudVisible: boolean;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const prevLabel = useRef("");
+
+  useEffect(() => {
+    let raf = 0;
+    function tick() {
+      raf = requestAnimationFrame(tick);
+      const bar = barRef.current;
+      const label = labelRef.current;
+      if (!bar || !label) return;
+
+      const dist = cameraDistanceRef.current; // scene units
+      const screenH = window.innerHeight || 1;
+      const screenW = window.innerWidth || 1;
+      const aspect = screenW / screenH;
+
+      // Visible world width at the focus distance
+      const visibleHeight = 2 * dist * Math.tan(SCALE_FOV_RAD / 2);
+      const visibleWidth = visibleHeight * aspect;
+
+      // What the target bar width represents in km
+      const rawKm =
+        (SCALE_TARGET_PX / screenW) * visibleWidth * SCALE_KM_PER_UNIT;
+      if (!Number.isFinite(rawKm) || rawKm <= 0) return;
+
+      const niceKm = niceFloor(rawKm);
+      const actualPx = (niceKm / (visibleWidth * SCALE_KM_PER_UNIT)) * screenW;
+
+      bar.style.width = `${actualPx}px`;
+      const text = formatScaleLabel(niceKm);
+      if (text !== prevLabel.current) {
+        label.textContent = text;
+        prevLabel.current = text;
+      }
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [cameraDistanceRef]);
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: "1.2rem",
+        left: "1.2rem",
+        zIndex: 1000,
+        fontFamily: HUD_FONT_FAMILY,
+        opacity: hudVisible ? 1 : 0,
+        transform: hudVisible ? "translateY(0)" : "translateY(0.5rem)",
+        transition: "opacity 360ms ease, transform 360ms ease",
+        pointerEvents: "none",
+      }}
+    >
+      <span
+        ref={labelRef}
+        style={{
+          display: "block",
+          fontSize: "0.65rem",
+          letterSpacing: "0.04em",
+          color: HUD_TEXT_MUTED,
+          marginBottom: "0.2rem",
+        }}
+      />
+      <div
+        ref={barRef}
+        style={{
+          height: "2px",
+          minWidth: "20px",
+          background: HUD_TEXT_MUTED,
+          borderRadius: "1px",
+          boxShadow: "0 0 4px rgba(0,0,0,0.5)",
+        }}
+      />
+    </div>
+  );
+}
+
+const STORAGE_KEY = "asterion-state";
+
+type PersistedState = {
+  focusBodyId: string;
+  activeMissionId: string | null;
+  simulationDateMs: number;
+  daysPerSecond: number;
+  isPlaying: boolean;
+};
+
+function loadPersistedState(): PersistedState | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedState;
+    if (
+      typeof parsed.focusBodyId !== "string" ||
+      typeof parsed.simulationDateMs !== "number" ||
+      !Number.isFinite(parsed.simulationDateMs)
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+const PERSISTED = loadPersistedState();
+
 export function App() {
   const gpu = useWebGPUSupport();
   const { hidden: levaHidden, toggle: toggleLeva } = useLevaVisibility();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHudHovered, setIsHudHovered] = useState(false);
-  const [isTimePanelOpen, setIsTimePanelOpen] = useState(false);
-  const [focusBodyId, setFocusBodyId] =
-    useState<BodyId>(DEFAULT_FOCUS_BODY_ID);
-  const [timeline, setTimeline] = useState<SimulationTimeline>(() =>
-    createSimulationTimeline(),
-  );
+  const cameraDistanceRef = useRef(1);
+  const [focusBodyId, setFocusBodyId] = useState<BodyId>(() => {
+    if (PERSISTED?.focusBodyId && PERSISTED.focusBodyId in BODY_DEFINITIONS) {
+      return PERSISTED.focusBodyId as BodyId;
+    }
+    return DEFAULT_FOCUS_BODY_ID;
+  });
+  const [activeMissionId, setActiveMissionId] = useState<string | null>(() => {
+    if (
+      PERSISTED?.activeMissionId &&
+      MISSION_REGISTRY.some((m) => m.id === PERSISTED.activeMissionId)
+    ) {
+      return PERSISTED.activeMissionId;
+    }
+    return null;
+  });
+  const [timeline, setTimeline] = useState<SimulationTimeline>(() => {
+    const anchorDateMs = PERSISTED?.simulationDateMs ?? Date.now();
+    const tl = createSimulationTimeline(anchorDateMs);
+    if (PERSISTED) {
+      tl.daysPerSecond = typeof PERSISTED.daysPerSecond === "number" && Number.isFinite(PERSISTED.daysPerSecond)
+        ? PERSISTED.daysPerSecond
+        : tl.daysPerSecond;
+      tl.isPlaying = typeof PERSISTED.isPlaying === "boolean"
+        ? PERSISTED.isPlaying
+        : tl.isPlaying;
+    }
+    return tl;
+  });
   const fullscreenSupported = document.fullscreenEnabled;
-  const hudVisible = useAmbientHud(!levaHidden || isHudHovered || isTimePanelOpen);
+  const hudVisible = useAmbientHud(!levaHidden || isHudHovered);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      const state: PersistedState = {
+        focusBodyId,
+        activeMissionId,
+        simulationDateMs: currentSimulationDateMs(timeline, timelineSystemMs()),
+        daysPerSecond: timeline.daysPerSecond,
+        isPlaying: timeline.isPlaying,
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }, 500);
+    return () => window.clearTimeout(id);
+  }, [focusBodyId, activeMissionId, timeline]);
 
   const toggleFullscreen = useCallback(async () => {
     if (!fullscreenSupported) return;
@@ -947,10 +1296,86 @@ export function App() {
           pointerEvents: hudVisible ? "auto" : "none",
         }}
       >
-        <FocusHudControl
-          focusBodyId={focusBodyId}
-          onFocusBodyChange={setFocusBodyId}
-        />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+          <FocusHudControl
+            focusBodyId={focusBodyId}
+            activeMissionId={activeMissionId}
+            onFocusBodyChange={setFocusBodyId}
+          />
+          {activeMissionId && (() => {
+            const mission = MISSION_REGISTRY.find((m) => m.id === activeMissionId);
+            if (!mission) return null;
+            return (
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.3rem",
+                  padding: "0.25rem 0.45rem",
+                  borderRadius: "0.4rem",
+                  background: "rgba(28, 30, 36, 0.5)",
+                  backdropFilter: "blur(12px) saturate(160%)",
+                  WebkitBackdropFilter: "blur(12px) saturate(160%)",
+                  fontFamily: HUD_FONT_FAMILY,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "0.72rem",
+                    letterSpacing: "0.02em",
+                    color: HUD_TEXT_MUTED,
+                  }}
+                >
+                  {mission.label}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveMissionId(null)}
+                  aria-label={`Dismiss ${mission.label}`}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "1.1rem",
+                    height: "1.1rem",
+                    padding: 0,
+                    border: "none",
+                    borderRadius: "999px",
+                    background: "transparent",
+                    color: HUD_TEXT_MUTED,
+                    cursor: "pointer",
+                    fontSize: "0.65rem",
+                    lineHeight: 1,
+                    transition: "background 150ms ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "rgba(255, 255, 255, 0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            );
+          })()}
+          <SearchHudControl
+            onSelectBody={setFocusBodyId}
+            onSelectMission={(mission) => {
+              setFocusBodyId(mission.id);
+              if (activeMissionId !== mission.id) {
+                setActiveMissionId(mission.id);
+                setTimeline((current) => {
+                  const systemMs = timelineSystemMs();
+                  return rebaseSimulationTimeline(current, {
+                    anchorDateMs: Date.parse(mission.launchUtc),
+                  }, systemMs);
+                });
+              }
+            }}
+          />
+        </div>
         <Leva fill hidden={levaHidden} collapsed />
       </div>
       <div
@@ -989,8 +1414,6 @@ export function App() {
       >
         <div style={{ display: "flex", alignItems: "flex-start", gap: "0.45rem" }}>
           <TimeHudControl
-            open={isTimePanelOpen}
-            onOpenChange={setIsTimePanelOpen}
             timeline={timeline}
             setTimeline={setTimeline}
           />
@@ -1027,6 +1450,7 @@ export function App() {
           </div>
         </div>
       </div>
+      <ScaleBar cameraDistanceRef={cameraDistanceRef} hudVisible={hudVisible} />
       <Canvas
         // R3F v9 accepts an async renderer factory. The cast is needed because
         // the published types still default to WebGLRenderer signatures.
@@ -1040,7 +1464,7 @@ export function App() {
         }}
         style={{ position: "fixed", inset: 0 }}
       >
-        <Scene focusBodyId={focusBodyId} timeline={timeline} />
+        <Scene focusBodyId={focusBodyId} activeMissionId={activeMissionId} timeline={timeline} cameraDistanceRef={cameraDistanceRef} />
       </Canvas>
     </div>
   );

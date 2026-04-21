@@ -4,26 +4,27 @@ from __future__ import annotations
 
 import json
 
-from pipeline.paths import repo_root, textures_dir
+from pipeline.paths import assets_dir, repo_root
 
 
 def run_attribution() -> None:
     """Read provenance files and regenerate ATTRIBUTION.md at repo root."""
-    textures = textures_dir()
-    prov_files = sorted(textures.glob("*.provenance.json"))
+    assets_root = assets_dir()
+    prov_files = sorted(assets_root.rglob("*.provenance.json"))
 
     if not prov_files:
-        print("No provenance files found in src/assets/textures/")
+        print("No provenance files found in src/assets/")
         return
 
     rows: list[dict[str, str]] = []
     for pf in prov_files:
         data = json.loads(pf.read_text(encoding="utf-8"))
-        # Texture filename = provenance filename minus .provenance.json
-        texture_name = pf.name.removesuffix(".provenance.json")
+        asset_name = pf.name.removesuffix(".provenance.json")
+        asset_type = pf.relative_to(assets_root).parts[0]
         rows.append(
             {
-                "texture": texture_name,
+                "asset": asset_name,
+                "type": asset_type,
                 "source": data.get("source_url", ""),
                 "license": data.get("license", ""),
                 "attribution": data.get("attribution", ""),
@@ -37,14 +38,14 @@ def run_attribution() -> None:
         "This file is auto-generated. Do not edit manually.",
         "Regenerate with: `cd pipeline && uv run pipeline attribution`",
         "",
-        "| Texture | Source | License | Attribution | Page |",
-        "|---------|--------|---------|-------------|------|",
+        "| Type | Asset | Source | License | Attribution | Page |",
+        "|------|-------|--------|---------|-------------|------|",
     ]
     for r in rows:
         page_link = f"[link]({r['page']})" if r["page"] else ""
         source_link = f"[link]({r['source']})" if r["source"] else ""
         lines.append(
-            f"| {r['texture']} | {source_link} | {r['license']} "
+            f"| {r['type']} | {r['asset']} | {source_link} | {r['license']} "
             f"| {r['attribution']} | {page_link} |"
         )
     lines.append("")

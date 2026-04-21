@@ -31,5 +31,17 @@ def intermediate_dir() -> Path:
     return _REPO_ROOT / "data" / "intermediate"
 
 
+def assets_dir() -> Path:
+    return _REPO_ROOT / "src" / "assets"
+
+
+def asset_dir(asset_type: str) -> Path:
+    return assets_dir() / asset_type
+
+
+def public_asset_dir(asset_type: str) -> Path:
+    return _REPO_ROOT / "public" / asset_type
+
+
 def textures_dir() -> Path:
-    return _REPO_ROOT / "src" / "assets" / "textures"
+    return asset_dir("textures")

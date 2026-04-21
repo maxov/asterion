@@ -68,6 +68,7 @@ export function createSolarSystemState(
       sun: createBodySimulationState("sun"),
       earth: createBodySimulationState("earth"),
       moon: createBodySimulationState("moon"),
+      artemis2: createBodySimulationState("artemis2"),
       saturn: createBodySimulationState("saturn"),
       titan: createBodySimulationState("titan"),
     },
@@ -88,6 +89,7 @@ export function updateSolarSystemState(
   const titan = bodies.titan;
   const earth = bodies.earth;
   const moon = bodies.moon;
+  const artemis2 = bodies.artemis2;
 
   state.dateMs = dateMs;
   state.focusBodyId = focusBodyId;
@@ -114,12 +116,15 @@ export function updateSolarSystemState(
   moon.physicalPositionKm
     .copy(earth.physicalPositionKm)
     .add(moon.positionRelativeToParentKm);
+  artemis2.physicalPositionKm.copy(earth.physicalPositionKm);
+  artemis2.positionRelativeToParentKm.set(0, 0, 0);
 
   updateSunDirection(sun);
   updateSunDirection(saturn);
   updateSunDirection(titan);
   updateSunDirection(earth);
   updateSunDirection(moon);
+  updateSunDirection(artemis2);
 
   const focusPositionKm = bodies[focusBodyId].physicalPositionKm;
   for (const bodyId of BODY_IDS) {

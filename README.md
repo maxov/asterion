@@ -22,6 +22,11 @@ pnpm run build
 pnpm run preview
 ```
 
+Processed assets are generated via the pipeline under `src/assets/` with
+`.provenance.json` sidecars. Runtime copies live in `public/<asset_type>/`.
+The renderer now uses this for both textures and mission-profile data
+such as Artemis II.
+
 ## Textures
 
 The renderer works without texture files — it uses solid-color fallbacks.

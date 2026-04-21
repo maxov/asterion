@@ -1,0 +1,57 @@
+{
+  "source_id": "artemis_ii_horizons",
+  "source_url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27-1024%27&OBJ_DATA=%27YES%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&START_TIME=%272026-04-02+01%3A59%27&STOP_TIME=%272026-04-10+23%3A51%27&STEP_SIZE=%275+min%27&TIME_TYPE=%27UT%27&TIME_DIGITS=%27SECONDS%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27&VEC_CORR=%27NONE%27&CSV_FORMAT=%27YES%27",
+  "source_page": "https://ssd-api.jpl.nasa.gov/doc/horizons.html",
+  "license": "Public Domain (NASA/JPL ephemeris data; NASA mission documentation)",
+  "attribution": "NASA/JPL Solar System Dynamics; NASA",
+  "asset_type": "missions",
+  "sha256_raw": "5cc9b759415c44c4011004cbd471a54457a546333a247aa81bdb16a3e2eef0c8",
+  "sha256_output": "c7bbe907f33f396367d6c02bd677239e20d6f48f0745c5f595a620f680ca05ec",
+  "processor": "jpl_horizons_mission",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-21T16:11:55.998443+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27-1024%27&OBJ_DATA=%27YES%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&START_TIME=%272026-04-02+01%3A59%27&STOP_TIME=%272026-04-10+23%3A51%27&STEP_SIZE=%275+min%27&TIME_TYPE=%27UT%27&TIME_DIGITS=%27SECONDS%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27&VEC_CORR=%27NONE%27&CSV_FORMAT=%27YES%27",
+      "path": "data/raw/artemis_ii_horizons.api",
+      "sha256": "5cc9b759415c44c4011004cbd471a54457a546333a247aa81bdb16a3e2eef0c8"
+    },
+    {
+      "role": "extra",
+      "name": "press_kit",
+      "url": "https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf",
+      "path": "data/raw/artemis_ii_horizons_press_kit.pdf",
+      "sha256": "da1ce32f8377bdb630314606ec5e0e38774f1af8d77a008f8d4d4afe78fea88f"
+    },
+    {
+      "role": "extra",
+      "name": "reference_moon",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api?format=json&COMMAND=%27301%27&OBJ_DATA=%27NO%27&MAKE_EPHEM=%27YES%27&EPHEM_TYPE=%27VECTORS%27&CENTER=%27500%40399%27&START_TIME=%272026-04-02+01%3A59%27&STOP_TIME=%272026-04-10+23%3A51%27&STEP_SIZE=%275+min%27&TIME_TYPE=%27UT%27&TIME_DIGITS=%27SECONDS%27&REF_SYSTEM=%27ICRF%27&REF_PLANE=%27FRAME%27&OUT_UNITS=%27KM-S%27&VEC_TABLE=%272%27&VEC_CORR=%27NONE%27&CSV_FORMAT=%27YES%27",
+      "path": "data/raw/artemis_ii_horizons_reference_moon.api",
+      "sha256": "163b054b72958a1e08fd8167dbd1da8ef76520d014f94d95c4166920056bb75f"
+    }
+  ],
+  "mission_id": "artemis2",
+  "mission_name": "Artemis II",
+  "trajectory_model": "sampled-vectors-v1",
+  "frame": "earth-centered-inertial",
+  "launch_utc": "2026-04-01T22:35:12Z",
+  "duration_seconds": 783108,
+  "system_id": "earthSystem",
+  "reference_pages": [
+    "https://www.nasa.gov/missions/artemis/artemis-2/",
+    "https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf",
+    "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
+  ],
+  "sample_count": 2567,
+  "trajectory_center_body": "Earth (399)                     {source: DE441}",
+  "trajectory_target_body": "Artemis II (spacecraft) (-1024) {source: Artemis_II_merged}",
+  "trajectory_sample_start_utc": "2026-04-02T01:59:00Z",
+  "trajectory_sample_stop_utc": "2026-04-10T23:49:00Z",
+  "trajectory_step_seconds": 300,
+  "reference_bodies": [
+    "moon"
+  ]
+}

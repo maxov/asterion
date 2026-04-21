@@ -9,7 +9,13 @@ import {
   TITAN_RADIUS_KM,
 } from "./constants.ts";
 
-export type BodyId = "sun" | "earth" | "moon" | "saturn" | "titan";
+export type BodyId =
+  | "sun"
+  | "earth"
+  | "moon"
+  | "artemis2"
+  | "saturn"
+  | "titan";
 export type BodySystemId = "solarSystem" | "earthSystem" | "saturnSystem";
 
 export const DEFAULT_FOCUS_BODY_ID: BodyId = "earth";
@@ -58,6 +64,17 @@ export const BODY_DEFINITIONS: Record<BodyId, BodyDefinition> = {
     parentId: "earth",
     radiusKm: MOON_RADIUS_KM,
     renderRadiusKm: MOON_RADIUS_KM,
+    systemId: "earthSystem",
+  },
+  artemis2: {
+    defaultFocusDistanceKm: 0.02,
+    id: "artemis2",
+    label: "Artemis II",
+    maxDistanceKm: 500_000,
+    minDistanceKm: 0.0005,
+    parentId: "earth",
+    radiusKm: 25,
+    renderRadiusKm: 320,
     systemId: "earthSystem",
   },
   saturn: {

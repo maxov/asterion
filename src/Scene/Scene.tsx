@@ -4,15 +4,17 @@ import {
   useMemo,
   useRef,
   type ElementRef,
+  type MutableRefObject,
   type RefObject,
 } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useControls } from "leva";
-import { Color, MathUtils, Vector3, type Group } from "three";
+import { Color, MathUtils, Object3D, Vector3, type Group } from "three";
 import { Atmosphere } from "./Atmosphere.tsx";
 import { Earth } from "./Earth.tsx";
 import { Lighting } from "./Lighting.tsx";
+import { MissionTrajectories } from "./MissionTrajectory.tsx";
 import { Moon } from "./Moon.tsx";
 import { Rings } from "./Rings.tsx";
 import { Saturn } from "./Saturn.tsx";
@@ -53,10 +55,13 @@ import { kmToUnits } from "../lib/units.ts";
 type Pipeline = { outputNode: unknown; renderAsync: () => Promise<void> };
 
 type OrbitControlsHandle = ElementRef<typeof OrbitControls>;
-type BodyAnchorMap = Record<BodyId, RefObject<Group | null>>;
+type BodyAnchorMap = Record<BodyId, RefObject<Object3D | null>>;
 type SceneProps = {
   focusBodyId: BodyId;
+  activeMissionId: string | null;
   timeline: SimulationTimeline;
+  /** Written every frame with the camera-to-target distance in scene units. */
+  cameraDistanceRef?: RefObject<number>;
 };
 
 const BODY_IDS = Object.keys(BODY_DEFINITIONS) as BodyId[];
@@ -64,8 +69,9 @@ const AXIAL_TILT_RAD = (SATURN_AXIAL_TILT_DEG * Math.PI) / 180;
 const AXIAL_TILT_AXIS = new Vector3(0, 0, 1);
 const CANARY_COLOR = new Color("#ff1fbf");
 const CAMERA_NEAR_SCALE = 0.01;
+const MISSION_CAMERA_NEAR_SCALE = 0.001;
 const CAMERA_FAR_MARGIN = 1.2;
-const MIN_FOCUS_DISTANCE = 1e-4;
+const MIN_FOCUS_DISTANCE = 1e-8;
 const TARGET_FOLLOW_DAMPING = 0.16;
 const DISTANCE_FOLLOW_DAMPING = 0.18;
 const FALLBACK_VIEW_DIRECTION = new Vector3(0.54, 0.31, 0.78).normalize();
@@ -73,6 +79,20 @@ const LOCAL_UP_AXIS = new Vector3(0, 1, 0);
 
 function copyKmVectorToUnits(target: Vector3, source: Vector3) {
   target.set(kmToUnits(source.x), kmToUnits(source.y), kmToUnits(source.z));
+}
+
+function clampFocusDistance(bodyId: BodyId, distanceUnits: number) {
+  const definition = BODY_DEFINITIONS[bodyId];
+  const minDistance = Math.max(
+    kmToUnits(definition.minDistanceKm),
+    MIN_FOCUS_DISTANCE,
+  );
+  const maxDistance = Math.max(
+    kmToUnits(definition.maxDistanceKm),
+    minDistance,
+  );
+
+  return MathUtils.clamp(distanceUnits, minDistance, maxDistance);
 }
 
 function Effects() {
@@ -215,18 +235,18 @@ function FocusCameraRig({
   const desiredTargetRef = useRef(new Vector3());
   const currentOffsetRef = useRef(new Vector3());
   const targetDistanceRef = useRef(
-    Math.max(
+    clampFocusDistance(
+      focusBodyId,
       kmToUnits(BODY_DEFINITIONS[focusBodyId].defaultFocusDistanceKm),
-      MIN_FOCUS_DISTANCE,
     ),
   );
   const snapToFocusRef = useRef(true);
   const focusDefinition = BODY_DEFINITIONS[focusBodyId];
 
   useEffect(() => {
-    targetDistanceRef.current = Math.max(
+    targetDistanceRef.current = clampFocusDistance(
+      focusBodyId,
       kmToUnits(focusDefinition.defaultFocusDistanceKm),
-      MIN_FOCUS_DISTANCE,
     );
     snapToFocusRef.current = true;
   }, [focusBodyId, focusDefinition.defaultFocusDistanceKm]);
@@ -235,9 +255,9 @@ function FocusCameraRig({
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
       const scale = Math.pow(0.95, event.deltaY * 0.01);
-      targetDistanceRef.current = Math.max(
+      targetDistanceRef.current = clampFocusDistance(
+        focusBodyId,
         targetDistanceRef.current * scale,
-        MIN_FOCUS_DISTANCE,
       );
     };
 
@@ -245,7 +265,7 @@ function FocusCameraRig({
     return () => {
       gl.domElement.removeEventListener("wheel", onWheel);
     };
-  }, [gl]);
+  }, [focusBodyId, gl]);
 
   useFrame(() => {
     const controls = controlsRef.current;
@@ -290,7 +310,9 @@ function FocusCameraRig({
 
 export const Scene = memo(function Scene({
   focusBodyId,
+  activeMissionId,
   timeline,
+  cameraDistanceRef,
 }: SceneProps) {
   const camera = useThree((state) => state.camera);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
@@ -299,10 +321,14 @@ export const Scene = memo(function Scene({
   const saturnSpinRef = useRef<Group>(null);
   const titanAnchorRef = useRef<Group>(null);
   const titanSpinRef = useRef<Group>(null);
+  const earthSystemRef = useRef<Group>(null);
   const earthAnchorRef = useRef<Group>(null);
   const earthSpinRef = useRef<Group>(null);
   const moonAnchorRef = useRef<Group>(null);
   const moonSpinRef = useRef<Group>(null);
+  const artemisAnchorRef = useRef<Group>(null);
+  const artemisFocusOffsetKmRef = useRef(new Vector3());
+  const earthSystemOriginKmRef = useRef(new Vector3());
   const simulationRef = useRef(createSolarSystemState(DEFAULT_FOCUS_BODY_ID));
   const saturnLocalSunDirectionRef = useRef(new Vector3(1, 0, 0));
   const localDirectionToParentRef = useRef(new Vector3());
@@ -313,6 +339,7 @@ export const Scene = memo(function Scene({
       sun: sunAnchorRef,
       earth: earthAnchorRef,
       moon: moonAnchorRef,
+      artemis2: artemisAnchorRef,
       saturn: saturnAnchorRef,
       titan: titanAnchorRef,
     }),
@@ -360,16 +387,23 @@ export const Scene = memo(function Scene({
         simulation.bodies.titan.positionRelativeToParentKm,
       );
     }
-    if (earthAnchorRef.current) {
-      copyKmVectorToUnits(
-        earthAnchorRef.current.position,
-        simulation.bodies.earth.positionRelativeToFocusKm,
-      );
-    }
     if (moonAnchorRef.current) {
       copyKmVectorToUnits(
         moonAnchorRef.current.position,
         simulation.bodies.moon.positionRelativeToParentKm,
+      );
+    }
+
+    earthSystemOriginKmRef.current.copy(
+      simulation.bodies.earth.positionRelativeToFocusKm,
+    );
+    if (focusBodyId === "artemis2") {
+      earthSystemOriginKmRef.current.sub(artemisFocusOffsetKmRef.current);
+    }
+    if (earthSystemRef.current) {
+      copyKmVectorToUnits(
+        earthSystemRef.current.position,
+        earthSystemOriginKmRef.current,
       );
     }
 
@@ -425,9 +459,14 @@ export const Scene = memo(function Scene({
     const currentFocusDistance = camera.position.distanceTo(
       controlsRef.current?.target ?? focusTargetRef.current.set(0, 0, 0),
     );
+    if (cameraDistanceRef) {
+      (cameraDistanceRef as { current: number }).current = currentFocusDistance;
+    }
+    const nearScale =
+      focusBodyId === "artemis2" ? MISSION_CAMERA_NEAR_SCALE : CAMERA_NEAR_SCALE;
     const nextNear = Math.max(
       MIN_FOCUS_DISTANCE,
-      currentFocusDistance * CAMERA_NEAR_SCALE,
+      currentFocusDistance * nearScale,
     );
     const nextFar =
       currentFocusDistance + kmToUnits(furthestBodyDistanceKm * CAMERA_FAR_MARGIN);
@@ -446,13 +485,15 @@ export const Scene = memo(function Scene({
     focusBodyId === "sun"
       ? camera.position
       : simulationRef.current.bodies[focusBodyId].sunDirectionWorld;
+  const controlDampingEnabled = focusBodyId !== "artemis2";
+  const controlDampingFactor = controlDampingEnabled ? 0.05 : 0;
 
   return (
     <>
       <OrbitControls
         ref={controlsRef}
-        enableDamping
-        dampingFactor={0.05}
+        enableDamping={controlDampingEnabled}
+        dampingFactor={controlDampingFactor}
         enablePan={false}
         enableZoom={false}
       />
@@ -495,19 +536,36 @@ export const Scene = memo(function Scene({
         </group>
       </group>
 
-      <group ref={earthAnchorRef}>
-        <group ref={earthSpinRef}>
-          <Earth
-            localSunDirection={simulationRef.current.bodies.earth.sunDirectionWorld}
-            simulationStateRef={simulationRef}
-          />
-        </group>
-        <group ref={moonAnchorRef}>
-          <group ref={moonSpinRef}>
-            <Moon />
+      <group ref={earthSystemRef}>
+        <group ref={earthAnchorRef}>
+          <group ref={earthSpinRef}>
+            <Earth
+              localSunDirection={simulationRef.current.bodies.earth.sunDirectionWorld}
+              simulationStateRef={simulationRef}
+            />
+          </group>
+          <group ref={moonAnchorRef}>
+            <group ref={moonSpinRef}>
+              <Moon />
+            </group>
           </group>
         </group>
       </group>
+      <MissionTrajectories
+        focusBodyId={focusBodyId}
+        activeMissionId={activeMissionId}
+        missionAnchors={{
+          artemis2: artemisAnchorRef,
+        }}
+        missionFocusOffsetsKm={{
+          artemis2:
+            artemisFocusOffsetKmRef as MutableRefObject<Vector3>,
+        }}
+        systemOriginKmRef={
+          earthSystemOriginKmRef as MutableRefObject<Vector3>
+        }
+        timeline={timeline}
+      />
 
       <Stars />
       {focusBodyId === "sun" ? null : (

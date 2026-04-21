@@ -34,7 +34,19 @@ def test_write_provenance(tmp_path: Path) -> None:
     )
 
     result = write_provenance(
-        texture, source, sha256_raw="rawdigest", sha256_output="outdigest"
+        texture,
+        source,
+        sha256_raw="rawdigest",
+        sha256_output="outdigest",
+        raw_inputs=[
+            {
+                "role": "primary",
+                "name": "primary",
+                "url": "https://example.com/file.png",
+                "path": "data/raw/test_src.png",
+                "sha256": "rawdigest",
+            }
+        ],
     )
 
     assert result.exists()
@@ -42,8 +54,10 @@ def test_write_provenance(tmp_path: Path) -> None:
 
     data = json.loads(result.read_text())
     assert data["source_id"] == "test_src"
+    assert data["asset_type"] == "textures"
     assert data["sha256_raw"] == "rawdigest"
     assert data["sha256_output"] == "outdigest"
+    assert data["raw_inputs"][0]["role"] == "primary"
     assert data["processor"] == "passthrough"
     assert data["pipeline_version"] == "0.1.0"
     assert "processed_at" in data

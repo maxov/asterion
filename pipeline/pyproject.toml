@@ -1,7 +1,7 @@
 [project]
 name = "pipeline"
 version = "0.1.0"
-description = "Texture processing pipeline for Asterion"
+description = "Asset processing pipeline for Asterion"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.0",
