@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import {
   Color,
   LineBasicMaterial,
-  LineLoop,
+  Line,
   MathUtils,
   BufferGeometry,
   type Mesh,
@@ -81,6 +81,7 @@ function TitanOrbitPath() {
       const trueAnomaly = (i / segments) * 2 * Math.PI
       points.push(orbitalPositionWorld(trueAnomaly))
     }
+    points.push(points[0].clone())
 
     const geometry = new BufferGeometry().setFromPoints(points)
     const material = new LineBasicMaterial({
@@ -90,7 +91,7 @@ function TitanOrbitPath() {
       toneMapped: false,
     })
 
-    return new LineLoop(geometry, material)
+    return new Line(geometry, material)
   }, [])
 
   useEffect(() => {

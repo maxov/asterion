@@ -21,24 +21,34 @@ import {
   type Side,
   type Texture,
 } from 'three'
-import { RING_INNER_RADIUS, RING_OUTER_RADIUS } from '../lib/constants.ts'
+import {
+  RING_INNER_RADIUS,
+  RING_OUTER_RADIUS,
+  SATURN_EQUATORIAL_RADIUS,
+  SATURN_POLAR_RADIUS,
+} from '../lib/constants.ts'
 import { kmToUnits } from '../lib/units.ts'
-import { usePreparedSharedTexture, useSharedTexture } from '../lib/useSharedTexture.ts'
+import { usePreparedSharedTexture } from '../lib/useSharedTexture.ts'
 
 const INNER = kmToUnits(RING_INNER_RADIUS)
 const OUTER = kmToUnits(RING_OUTER_RADIUS)
+const SATURN_EQUATORIAL = kmToUnits(SATURN_EQUATORIAL_RADIUS)
+const SATURN_POLAR = kmToUnits(SATURN_POLAR_RADIUS)
 const SEGMENTS = 512
 const COLOR_TEXTURE_PATH = '/textures/saturn_rings_color.png'
 const SCATTERING_TEXTURE_PATH = '/textures/saturn_rings_scattering.png'
 const MAX_TEXTURE_WIDTH = 4096
 const EXPANDED_TEXTURE_HEIGHT = 16
-const TEXTURE_V = 0.5
+const RING_SHADOW_TEXTURE_WIDTH = 4096
+const RING_SHADOW_TEXTURE_HEIGHT = 2048
+const RING_SHADOW_UMBRA_SOFTNESS = SATURN_EQUATORIAL * 0.012
+const RING_SHADOW_PENUMBRA_SOFTNESS = SATURN_EQUATORIAL * 0.055
+const RING_SHADOW_PENUMBRA_OPACITY = 0.58
+const RING_SHADOW_DENSITY_BOOST = 2.35
+const RING_SHADOW_SUN_PROJECTION_EPSILON = 1e-4
 const FALLBACK_COLOR = new Color(0.83, 0.77, 0.63)
 const PHASE_EPSILON = 0.002
 const UNLIT_BLEND_EPSILON = 0.01
-const UNLIT_BLEND_START = 0
-const UNLIT_BLEND_END = 0.75
-const UNLIT_BLEND_POWER = 1.8
 
 type RingTextureBundle = {
   alpha: Float32Array
@@ -51,6 +61,17 @@ type RingTextureBundle = {
   tintGreen: Float32Array
   tintRed: Float32Array
   unlit: Float32Array
+  width: number
+}
+
+type RingShadowTextureBundle = {
+  angleCos: Float32Array
+  angleSin: Float32Array
+  context: CanvasRenderingContext2D
+  height: number
+  imageData: ImageData
+  radii: Float32Array
+  texture: CanvasTexture
   width: number
 }
 
@@ -78,9 +99,9 @@ function createRingGeometry(inner: number, outer: number, segments: number) {
     normals[outerIndex * 3 + 2] = 1
 
     uvs[innerIndex * 2] = 0
-    uvs[innerIndex * 2 + 1] = TEXTURE_V
+    uvs[innerIndex * 2 + 1] = i / segments
     uvs[outerIndex * 2] = 1
-    uvs[outerIndex * 2 + 1] = TEXTURE_V
+    uvs[outerIndex * 2 + 1] = i / segments
   }
 
   for (let i = 0; i < segments; i += 1) {
@@ -239,6 +260,70 @@ function createRingTextureBundle(
   return bundle
 }
 
+function createRingShadowOpacityProfile(
+  scatteringTexture: Texture,
+  width: number,
+): Float32Array | null {
+  const image = scatteringTexture.image as CanvasImageSource & {
+    width?: number
+    height?: number
+  } | undefined
+
+  const sourceWidth = image?.width ?? 0
+  const sourceHeight = image?.height ?? 0
+
+  if (!image || !sourceWidth || !sourceHeight) return null
+
+  const row = drawScaledRow(image, sourceWidth, sourceHeight, width)
+  if (!row) return null
+
+  const opacity = new Float32Array(width)
+  for (let x = 0; x < width; x += 1) {
+    opacity[x] = 1 - row.data[x * 4 + 3] / 255
+  }
+
+  return opacity
+}
+
+function createRingShadowTextureBundle(
+  width: number,
+  height: number,
+): RingShadowTextureBundle | null {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+
+  const context = canvas.getContext('2d')
+  if (!context) return null
+
+  const texture = new CanvasTexture(canvas)
+  configureRingTexture(texture)
+
+  const radii = new Float32Array(width)
+  for (let x = 0; x < width; x += 1) {
+    radii[x] = MathUtils.lerp(INNER, OUTER, (x + 0.5) / width)
+  }
+
+  const angleCos = new Float32Array(height)
+  const angleSin = new Float32Array(height)
+  for (let y = 0; y < height; y += 1) {
+    const angle = (1 - (y + 0.5) / height) * Math.PI * 2
+    angleCos[y] = Math.cos(angle)
+    angleSin[y] = Math.sin(angle)
+  }
+
+  return {
+    angleCos,
+    angleSin,
+    context,
+    height,
+    imageData: context.createImageData(width, height),
+    radii,
+    texture,
+    width,
+  }
+}
+
 function renderRingTexture(
   bundle: RingTextureBundle,
   phaseMix: number,
@@ -282,13 +367,154 @@ function renderRingTexture(
   bundle.texture.needsUpdate = true
 }
 
+function shadowCoverageFromInsideDistance(
+  insideDistance: number,
+  umbraSoftness: number,
+  penumbraSoftness: number,
+) {
+  if (insideDistance <= -penumbraSoftness) return 0
+
+  const outerCoverage = MathUtils.smoothstep(
+    insideDistance,
+    -penumbraSoftness,
+    0,
+  )
+  const umbraCoverage = MathUtils.smoothstep(
+    insideDistance,
+    0,
+    umbraSoftness,
+  )
+
+  return outerCoverage * MathUtils.lerp(
+    RING_SHADOW_PENUMBRA_OPACITY,
+    1,
+    umbraCoverage,
+  )
+}
+
+function renderPlanetShadowTexture(
+  bundle: RingShadowTextureBundle,
+  ringOpacityProfile: Float32Array | null,
+  localSunDirection: Vector3,
+  strength: number,
+) {
+  const { data } = bundle.imageData
+  data.fill(0)
+
+  if (!ringOpacityProfile || strength <= 0) {
+    bundle.context.putImageData(bundle.imageData, 0, 0)
+    bundle.texture.needsUpdate = true
+    return
+  }
+
+  const projectionLength = Math.hypot(localSunDirection.x, localSunDirection.y)
+  if (projectionLength <= RING_SHADOW_SUN_PROJECTION_EPSILON) {
+    bundle.context.putImageData(bundle.imageData, 0, 0)
+    bundle.texture.needsUpdate = true
+    return
+  }
+
+  const shadowAxisX = -localSunDirection.x / projectionLength
+  const shadowAxisY = -localSunDirection.y / projectionLength
+  const lateralAxisX = -shadowAxisY
+  const lateralAxisY = shadowAxisX
+  const semiMinor = SATURN_EQUATORIAL
+  const semiMinorSquared = semiMinor * semiMinor
+  const umbraSoftness = Math.min(RING_SHADOW_UMBRA_SOFTNESS, semiMinor * 0.25)
+  const penumbraSoftness = Math.min(
+    RING_SHADOW_PENUMBRA_SOFTNESS,
+    semiMinor * 0.5,
+  )
+  const normalComponent = Math.abs(localSunDirection.z)
+  const usesInfiniteStrip =
+    normalComponent <= RING_SHADOW_SUN_PROJECTION_EPSILON
+  const semiMajor = usesInfiniteStrip
+    ? Number.POSITIVE_INFINITY
+    : Math.sqrt(
+        semiMinorSquared +
+          (SATURN_POLAR * SATURN_POLAR * projectionLength * projectionLength) /
+            (normalComponent * normalComponent),
+      )
+
+  for (let y = 0; y < bundle.height; y += 1) {
+    const cosAngle = bundle.angleCos[y]
+    const sinAngle = bundle.angleSin[y]
+
+    for (let x = 0; x < bundle.width; x += 1) {
+      const ringOpacity = ringOpacityProfile[x]
+      if (ringOpacity <= 0.001) continue
+      const boostedRingOpacity =
+        1 - Math.pow(1 - ringOpacity, RING_SHADOW_DENSITY_BOOST)
+
+      const radius = bundle.radii[x]
+      const px = cosAngle * radius
+      const py = sinAngle * radius
+      const u = px * shadowAxisX + py * shadowAxisY
+      const frontDistance = u
+      if (frontDistance <= -penumbraSoftness) continue
+
+      const v = px * lateralAxisX + py * lateralAxisY
+      const lateralInsideDistance = semiMinor - Math.abs(v)
+      if (lateralInsideDistance <= -penumbraSoftness) continue
+
+      const frontCoverage = shadowCoverageFromInsideDistance(
+        frontDistance,
+        umbraSoftness,
+        penumbraSoftness,
+      )
+      if (frontCoverage <= 0) continue
+
+      const lateralCoverage = shadowCoverageFromInsideDistance(
+        lateralInsideDistance,
+        umbraSoftness,
+        penumbraSoftness,
+      )
+      if (lateralCoverage <= 0) continue
+
+      let axialCoverage = 1
+      if (!usesInfiniteStrip) {
+        const axialLimit =
+          semiMajor *
+          Math.sqrt(
+            Math.max(
+              1 - (v * v) / semiMinorSquared,
+              0,
+            ),
+          )
+        const axialInsideDistance = axialLimit - u
+        if (axialInsideDistance <= -penumbraSoftness) continue
+
+        axialCoverage = shadowCoverageFromInsideDistance(
+          axialInsideDistance,
+          umbraSoftness,
+          penumbraSoftness,
+        )
+        if (axialCoverage <= 0) continue
+      }
+
+      const shadowCoverage = Math.min(
+        frontCoverage,
+        lateralCoverage,
+        axialCoverage,
+      )
+      const alpha = Math.min(
+        strength * boostedRingOpacity * shadowCoverage,
+        1,
+      )
+      if (alpha <= 0) continue
+
+      const dst = (y * bundle.width + x) * 4
+      data[dst + 3] = Math.round(alpha * 255)
+    }
+  }
+
+  bundle.context.putImageData(bundle.imageData, 0, 0)
+  bundle.texture.needsUpdate = true
+}
+
 function computeUnlitMix(viewPlaneDot: number, sunPlaneDot: number) {
   if (viewPlaneDot === 0 || sunPlaneDot === 0) return 0
-  if (Math.sign(viewPlaneDot) === Math.sign(sunPlaneDot)) return 0
-
-  const separation = Math.min(Math.abs(viewPlaneDot), Math.abs(sunPlaneDot))
-  const baseMix = MathUtils.smootherstep(separation, UNLIT_BLEND_START, UNLIT_BLEND_END)
-  return Math.pow(baseMix, UNLIT_BLEND_POWER)
+  return Math.sign(viewPlaneDot) === Math.sign(sunPlaneDot) ? 0 : 1
 }
 
 function createTexturedMaterial(
@@ -318,6 +544,8 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
   const ringGroupRef = useRef<Group>(null)
   const normalRef = useRef(new Vector3())
   const quaternionRef = useRef(new Quaternion())
+  const shadowQuaternionRef = useRef(new Quaternion())
+  const localSunDirectionRef = useRef(new Vector3())
   const viewDirRef = useRef(new Vector3())
   const lastPhaseRef = useRef(Number.NaN)
   const lastUnlitMixRef = useRef(Number.NaN)
@@ -326,14 +554,23 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     'saturn-rings',
     configureRingTexture,
   )
-  const { texture: scatteringTexture, error: scatteringError } = useSharedTexture(
+  const { texture: scatteringTexture, error: scatteringError } = usePreparedSharedTexture(
     SCATTERING_TEXTURE_PATH,
+    'saturn-rings-scattering',
+    configureRingTexture,
   )
 
-  const { opacity, chromaGain, warmth } = useControls('Rings', {
+  const { opacity, chromaGain, warmth, planetShadowStrength } = useControls('Rings', {
     opacity: { value: 0.7, min: 0, max: 1, step: 0.01, label: 'Opacity' },
     chromaGain: { value: 3.5, min: 1, max: 6, step: 0.05, label: 'Color Chroma' },
     warmth: { value: 0.4, min: 0, max: 1, step: 0.01, label: 'Warmth' },
+    planetShadowStrength: {
+      value: 1.15,
+      min: 0,
+      max: 1.5,
+      step: 0.01,
+      label: 'Planet Shadow',
+    },
   })
 
   const geometry = useMemo(() => createRingGeometry(INNER, OUTER, SEGMENTS), [])
@@ -365,9 +602,41 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     }
   }, [textured, textureBundle, opacity])
 
+  const shadowOpacityProfile = useMemo(
+    () =>
+      scatteringTexture
+        ? createRingShadowOpacityProfile(
+            scatteringTexture,
+            RING_SHADOW_TEXTURE_WIDTH,
+          )
+        : null,
+    [scatteringTexture],
+  )
+  const shadowBundle = useMemo(
+    () =>
+      createRingShadowTextureBundle(
+        RING_SHADOW_TEXTURE_WIDTH,
+        RING_SHADOW_TEXTURE_HEIGHT,
+      ),
+    [],
+  )
+  const shadowMaterial = useMemo(() => {
+    if (!shadowBundle) return null
+
+    return new MeshBasicMaterial({
+      map: shadowBundle.texture,
+      transparent: true,
+      premultipliedAlpha: true,
+      side: DoubleSide,
+      depthWrite: false,
+      toneMapped: false,
+    })
+  }, [shadowBundle])
+
   useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => () => fallback.dispose(), [fallback])
   useEffect(() => () => textureBundle?.texture.dispose(), [textureBundle])
+  useEffect(() => () => shadowBundle?.texture.dispose(), [shadowBundle])
   useEffect(
     () => () => {
       materials?.back.dispose()
@@ -375,6 +644,7 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     },
     [materials],
   )
+  useEffect(() => () => shadowMaterial?.dispose(), [shadowMaterial])
   useEffect(() => {
     if (colorError) console.warn(`Rings: failed to load ${COLOR_TEXTURE_PATH}`, colorError)
     if (scatteringError) console.warn(`Rings: failed to load ${SCATTERING_TEXTURE_PATH}`, scatteringError)
@@ -383,6 +653,23 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     lastPhaseRef.current = Number.NaN
     lastUnlitMixRef.current = Number.NaN
   }, [textureBundle])
+  useEffect(() => {
+    if (!shadowBundle) return
+    if (!ringGroupRef.current) return
+
+    ringGroupRef.current.getWorldQuaternion(shadowQuaternionRef.current)
+    shadowQuaternionRef.current.invert()
+    localSunDirectionRef.current
+      .copy(sunDirection)
+      .applyQuaternion(shadowQuaternionRef.current)
+      .normalize()
+    renderPlanetShadowTexture(
+      shadowBundle,
+      shadowOpacityProfile,
+      localSunDirectionRef.current,
+      planetShadowStrength,
+    )
+  }, [shadowBundle, shadowOpacityProfile, sunDirection, planetShadowStrength])
 
   useFrame(() => {
     if (!textured || !textureBundle || !ringGroupRef.current) return
@@ -408,32 +695,38 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     lastUnlitMixRef.current = unlitMix
   })
 
-  if (!materials) {
-    return (
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        renderOrder={1}
-        geometry={geometry}
-        material={fallback}
-      />
-    )
-  }
-
   return (
     <group
       ref={ringGroupRef}
       rotation={[-Math.PI / 2, 0, 0]}
     >
-      <mesh
-        renderOrder={1}
-        geometry={geometry}
-        material={materials.back}
-      />
-      <mesh
-        renderOrder={2}
-        geometry={geometry}
-        material={materials.front}
-      />
+      {materials ? (
+        <>
+          <mesh
+            renderOrder={1}
+            geometry={geometry}
+            material={materials.back}
+          />
+          <mesh
+            renderOrder={2}
+            geometry={geometry}
+            material={materials.front}
+          />
+        </>
+      ) : (
+        <mesh
+          renderOrder={1}
+          geometry={geometry}
+          material={fallback}
+        />
+      )}
+      {shadowMaterial ? (
+        <mesh
+          renderOrder={3}
+          geometry={geometry}
+          material={shadowMaterial}
+        />
+      ) : null}
     </group>
   )
 }
