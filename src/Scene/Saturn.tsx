@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useFrame, useThree } from "@react-three/fiber";
 import { useControls } from "leva";
 import {
   CanvasTexture,
@@ -6,7 +14,6 @@ import {
   Color,
   FrontSide,
   LinearFilter,
-  LinearMipmapLinearFilter,
   MathUtils,
   MeshBasicMaterial,
   MeshStandardMaterial,
@@ -35,18 +42,30 @@ const FALLBACK_COLOR = new Color(0.76, 0.63, 0.35);
 const RING_INNER = kmToUnits(RING_INNER_RADIUS);
 const RING_OUTER = kmToUnits(RING_OUTER_RADIUS);
 const SHADOW_SHELL_SCALE = 1.0015;
-const SHADOW_TEXTURE_WIDTH = 2048;
-const SHADOW_TEXTURE_HEIGHT = 1024;
+const SHADOW_TEXTURE_SIZES = {
+  far: { height: 512, width: 1024 },
+  near: { height: 1024, width: 2048 },
+} as const;
 const SHADOW_PROFILE_WIDTH = 2048;
 const SHADOW_FADE_START = 0.03;
 const SHADOW_FADE_END = 0.12;
 const SHADOW_TERMINATOR_END = 0.08;
 const SCATTERING_TEXTURE_PATH = "/textures/saturn_rings_scattering.png";
+const SHADOW_HIGH_RES_ENTER_DISTANCE = EQUATORIAL * 2.6;
+const SHADOW_HIGH_RES_EXIT_DISTANCE = EQUATORIAL * 3.2;
+
+type ShadowResolutionTier = keyof typeof SHADOW_TEXTURE_SIZES;
 
 type ShadowTextureBundle = {
+  cosPhi: Float32Array;
+  cosTheta: Float32Array;
   context: CanvasRenderingContext2D;
+  height: number;
   imageData: ImageData;
+  sinPhi: Float32Array;
+  sinTheta: Float32Array;
   texture: CanvasTexture;
+  width: number;
 };
 
 function configureSaturnTexture(texture: Texture) {
@@ -57,19 +76,33 @@ function configureSaturnTexture(texture: Texture) {
 
 function configureShadowTexture(texture: Texture) {
   texture.colorSpace = SRGBColorSpace;
-  texture.minFilter = LinearMipmapLinearFilter;
+  texture.minFilter = LinearFilter;
   texture.magFilter = LinearFilter;
-  texture.generateMipmaps = true;
+  texture.generateMipmaps = false;
   texture.wrapS = ClampToEdgeWrapping;
   texture.wrapT = ClampToEdgeWrapping;
-  texture.anisotropy = 8;
+  texture.anisotropy = 1;
   texture.needsUpdate = true;
 }
 
-function createShadowTextureBundle(): ShadowTextureBundle | null {
+function selectShadowResolutionTier(
+  distance: number,
+  currentTier: ShadowResolutionTier,
+) {
+  if (currentTier === "near") {
+    return distance >= SHADOW_HIGH_RES_EXIT_DISTANCE ? "far" : currentTier;
+  }
+
+  return distance <= SHADOW_HIGH_RES_ENTER_DISTANCE ? "near" : currentTier;
+}
+
+function createShadowTextureBundle(
+  width: number,
+  height: number,
+): ShadowTextureBundle | null {
   const canvas = document.createElement("canvas");
-  canvas.width = SHADOW_TEXTURE_WIDTH;
-  canvas.height = SHADOW_TEXTURE_HEIGHT;
+  canvas.width = width;
+  canvas.height = height;
 
   const context = canvas.getContext("2d");
   if (!context) return null;
@@ -77,13 +110,34 @@ function createShadowTextureBundle(): ShadowTextureBundle | null {
   const texture = new CanvasTexture(canvas);
   configureShadowTexture(texture);
 
+  const cosPhi = new Float32Array(width);
+  const sinPhi = new Float32Array(width);
+  for (let x = 0; x < width; x += 1) {
+    const u = (x + 0.5) / width;
+    const phi = u * Math.PI * 2;
+    cosPhi[x] = Math.cos(phi);
+    sinPhi[x] = Math.sin(phi);
+  }
+
+  const cosTheta = new Float32Array(height);
+  const sinTheta = new Float32Array(height);
+  for (let y = 0; y < height; y += 1) {
+    const v = (y + 0.5) / height;
+    const theta = v * Math.PI;
+    cosTheta[y] = Math.cos(theta);
+    sinTheta[y] = Math.sin(theta);
+  }
+
   return {
+    cosPhi,
+    cosTheta,
     context,
-    imageData: context.createImageData(
-      SHADOW_TEXTURE_WIDTH,
-      SHADOW_TEXTURE_HEIGHT,
-    ),
+    height,
+    imageData: context.createImageData(width, height),
+    sinPhi,
+    sinTheta,
     texture,
+    width,
   };
 }
 
@@ -141,7 +195,7 @@ function renderShadowTexture(
   localSunDirection: Vector3,
   strength: number,
 ) {
-  const sun = localSunDirection.clone().normalize();
+  const sun = localSunDirection;
   const sunElevation = Math.abs(sun.y);
   const elevationFade = MathUtils.smoothstep(
     sunElevation,
@@ -165,34 +219,27 @@ function renderShadowTexture(
   const sunX = sun.x;
   const sunY = sun.y;
   const sunZ = sun.z;
-  const equatorialSquared = EQUATORIAL * EQUATORIAL;
-  const polarSquared = POLAR * POLAR;
+  const inverseEquatorialSquared = 1 / (EQUATORIAL * EQUATORIAL);
+  const inversePolarSquared = 1 / (POLAR * POLAR);
 
-  for (let y = 0; y < SHADOW_TEXTURE_HEIGHT; y += 1) {
-    const v = (y + 0.5) / SHADOW_TEXTURE_HEIGHT;
-    const theta = v * Math.PI;
-    const sinTheta = Math.sin(theta);
-    const cosTheta = Math.cos(theta);
+  for (let y = 0; y < bundle.height; y += 1) {
+    const sinTheta = bundle.sinTheta[y];
+    const cosTheta = bundle.cosTheta[y];
+    const py = POLAR * cosTheta;
+    const ny = py * inversePolarSquared;
+    const rayDistance = -py / sunY;
 
-    for (let x = 0; x < SHADOW_TEXTURE_WIDTH; x += 1) {
-      const u = (x + 0.5) / SHADOW_TEXTURE_WIDTH;
-      const phi = u * Math.PI * 2;
-      const cosPhi = Math.cos(phi);
-      const sinPhi = Math.sin(phi);
+    if (rayDistance <= 0) continue;
 
-      const px = -EQUATORIAL * cosPhi * sinTheta;
-      const py = POLAR * cosTheta;
-      const pz = EQUATORIAL * sinPhi * sinTheta;
+    for (let x = 0; x < bundle.width; x += 1) {
+      const px = -EQUATORIAL * bundle.cosPhi[x] * sinTheta;
+      const pz = EQUATORIAL * bundle.sinPhi[x] * sinTheta;
 
-      const nx = px / equatorialSquared;
-      const ny = py / polarSquared;
-      const nz = pz / equatorialSquared;
+      const nx = px * inverseEquatorialSquared;
+      const nz = pz * inverseEquatorialSquared;
       const normalLength = Math.hypot(nx, ny, nz);
       const lit = (nx * sunX + ny * sunY + nz * sunZ) / normalLength;
       if (lit <= 0) continue;
-
-      const rayDistance = -py / sunY;
-      if (rayDistance <= 0) continue;
 
       const ix = px + sunX * rayDistance;
       const iz = pz + sunZ * rayDistance;
@@ -210,7 +257,7 @@ function renderShadowTexture(
       );
       if (alpha <= 0) continue;
 
-      const dst = (y * SHADOW_TEXTURE_WIDTH + x) * 4;
+      const dst = (y * bundle.width + x) * 4;
       data[dst + 3] = Math.round(alpha * 255);
     }
   }
@@ -228,7 +275,13 @@ export function Saturn({
   localSunDirection,
   textured = true,
 }: SaturnProps) {
+  const camera = useThree((state) => state.camera);
   const meshRef = useRef<Mesh>(null);
+  const [shadowResolutionTier, setShadowResolutionTier] =
+    useState<ShadowResolutionTier>(() =>
+      selectShadowResolutionTier(camera.position.length(), "far"),
+    );
+  const shadowResolutionTierRef = useRef(shadowResolutionTier);
   const { texture, error } = usePreparedSharedTexture(
     "/textures/saturn_albedo.jpg",
     "saturn-albedo",
@@ -292,8 +345,32 @@ export function Saturn({
     () => (scatteringTexture ? createShadowProfile(scatteringTexture) : null),
     [scatteringTexture],
   );
+  const deferredSunDirection = useDeferredValue(localSunDirection);
+  const deferredRingShadowStrength = useDeferredValue(ringShadowStrength);
+  const shadowSize = SHADOW_TEXTURE_SIZES[shadowResolutionTier];
 
-  const shadowBundle = useMemo(() => createShadowTextureBundle(), []);
+  useEffect(() => {
+    shadowResolutionTierRef.current = shadowResolutionTier;
+  }, [shadowResolutionTier]);
+
+  useFrame(() => {
+    const nextTier = selectShadowResolutionTier(
+      camera.position.length(),
+      shadowResolutionTierRef.current,
+    );
+
+    if (nextTier === shadowResolutionTierRef.current) return;
+
+    shadowResolutionTierRef.current = nextTier;
+    startTransition(() => {
+      setShadowResolutionTier(nextTier);
+    });
+  });
+
+  const shadowBundle = useMemo(
+    () => createShadowTextureBundle(shadowSize.width, shadowSize.height),
+    [shadowSize.height, shadowSize.width],
+  );
 
   const shadowMaterial = useMemo(() => {
     if (!shadowBundle) return null;
@@ -311,13 +388,23 @@ export function Saturn({
 
   useEffect(() => {
     if (!shadowBundle) return;
-    renderShadowTexture(
-      shadowBundle,
-      shadowProfile,
-      localSunDirection,
-      ringShadowStrength,
-    );
-  }, [shadowBundle, shadowProfile, localSunDirection, ringShadowStrength]);
+    const frame = requestAnimationFrame(() => {
+      renderShadowTexture(
+        shadowBundle,
+        shadowProfile,
+        deferredSunDirection,
+        deferredRingShadowStrength,
+      );
+    });
+    return () => {
+      cancelAnimationFrame(frame);
+    };
+  }, [
+    shadowBundle,
+    shadowProfile,
+    deferredSunDirection,
+    deferredRingShadowStrength,
+  ]);
 
   useEffect(() => {
     return () => {
