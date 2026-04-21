@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { publicPath } from "./publicPath.ts";
 
 const MODEL_LOADER = new GLTFLoader();
 const missionModelAssetCache = new Map<string, Promise<GLTF>>();
@@ -8,7 +9,7 @@ function loadMissionModelAsset(assetPath: string) {
   const cached = missionModelAssetCache.get(assetPath);
   if (cached) return cached;
 
-  const promise = MODEL_LOADER.loadAsync(assetPath);
+  const promise = MODEL_LOADER.loadAsync(publicPath(assetPath));
   missionModelAssetCache.set(assetPath, promise);
   return promise;
 }

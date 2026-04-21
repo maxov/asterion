@@ -1,4 +1,5 @@
 import type { CoordinateFrame } from "./astronomicalFrame.ts";
+import { publicPath } from "./publicPath.ts";
 
 export type PanoramaId = "eso_brunier" | "risinger" | "sss";
 
@@ -30,21 +31,21 @@ export const PANORAMAS: Record<PanoramaId, Panorama> = {
   eso_brunier: {
     id: "eso_brunier",
     label: "ESO Brunier",
-    file: "/textures/milky_way_eso.jpg",
+    file: publicPath("/textures/milky_way_eso.jpg"),
     frame: "galactic",
     attribution: "ESO / S. Brunier, F. Tapissier",
   },
   risinger: {
     id: "risinger",
     label: "Risinger",
-    file: "/textures/milky_way_risinger.jpg",
+    file: publicPath("/textures/milky_way_risinger.jpg"),
     frame: "galactic",
     attribution: "Nick Risinger / Photopic Sky Survey",
   },
   sss: {
     id: "sss",
     label: "Solar System Scope",
-    file: "/textures/milky_way.jpg",
+    file: publicPath("/textures/milky_way.jpg"),
     frame: "galactic",
     attribution: "INOVE / Solar System Scope",
   },

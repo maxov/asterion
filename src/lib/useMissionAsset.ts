@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { parseMissionAsset, type MissionAsset } from "./missions.ts";
+import { publicPath } from "./publicPath.ts";
 
 const missionAssetCache = new Map<string, Promise<MissionAsset>>();
 
@@ -7,7 +8,7 @@ function loadMissionAsset(assetPath: string) {
   const cached = missionAssetCache.get(assetPath);
   if (cached) return cached;
 
-  const promise = fetch(assetPath)
+  const promise = fetch(publicPath(assetPath))
     .then((response) => {
       if (!response.ok) {
         throw new Error(`Failed to load mission asset ${assetPath}: ${response.status}`);

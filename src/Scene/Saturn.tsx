@@ -33,6 +33,7 @@ import {
   usePreparedSharedTexture,
   useSharedTexture,
 } from "../lib/useSharedTexture.ts";
+import { publicPath } from "../lib/publicPath.ts";
 
 const EQUATORIAL = kmToUnits(SATURN_EQUATORIAL_RADIUS);
 const POLAR_SCALE = SATURN_POLAR_RADIUS / SATURN_EQUATORIAL_RADIUS;
@@ -49,7 +50,7 @@ const SHADOW_PROFILE_WIDTH = 2048;
 const SHADOW_FADE_START = 0.03;
 const SHADOW_FADE_END = 0.12;
 const SHADOW_TERMINATOR_END = 0.08;
-const SCATTERING_TEXTURE_PATH = "/textures/saturn_rings_scattering.png";
+const SCATTERING_TEXTURE_PATH = publicPath("/textures/saturn_rings_scattering.png");
 const SHADOW_HIGH_RES_ENTER_DISTANCE = EQUATORIAL * 2.6;
 const SHADOW_HIGH_RES_EXIT_DISTANCE = EQUATORIAL * 3.2;
 
@@ -282,7 +283,7 @@ export function Saturn({
     );
   const shadowResolutionTierRef = useRef(shadowResolutionTier);
   const { texture, error } = usePreparedSharedTexture(
-    "/textures/saturn_albedo.jpg",
+    publicPath("/textures/saturn_albedo.jpg"),
     "saturn-albedo",
     configureSaturnTexture,
   );

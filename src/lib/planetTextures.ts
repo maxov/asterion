@@ -6,6 +6,7 @@ import {
   SRGBColorSpace,
   type Texture,
 } from "three";
+import { publicPath } from "./publicPath.ts";
 
 const EARTH_DAY_MONTH_CODES = [
   "01",
@@ -22,10 +23,10 @@ const EARTH_DAY_MONTH_CODES = [
   "12",
 ] as const;
 
-export const EARTH_NIGHT_TEXTURE_PATH = "/textures/earth_night_2016.jpg";
-export const EARTH_CLOUD_TEXTURE_PATH = "/textures/earth_clouds.png";
-export const MOON_ALBEDO_TEXTURE_PATH = "/textures/moon_albedo.jpg";
-export const MOON_HEIGHT_TEXTURE_PATH = "/textures/moon_height.png";
+export const EARTH_NIGHT_TEXTURE_PATH = publicPath("/textures/earth_night_2016.jpg");
+export const EARTH_CLOUD_TEXTURE_PATH = publicPath("/textures/earth_clouds.png");
+export const MOON_ALBEDO_TEXTURE_PATH = publicPath("/textures/moon_albedo.jpg");
+export const MOON_HEIGHT_TEXTURE_PATH = publicPath("/textures/moon_height.png");
 export const MOON_HEIGHT_DISPLACEMENT_BIAS_KM = -10;
 export const MOON_HEIGHT_DISPLACEMENT_SCALE_KM = 32.7675;
 
@@ -56,7 +57,7 @@ export function earthDayTexturePathForMonth(monthIndex: number) {
       EARTH_DAY_MONTH_CODES.length) %
     EARTH_DAY_MONTH_CODES.length;
 
-  return `/textures/earth_day_${EARTH_DAY_MONTH_CODES[normalizedMonthIndex]}.jpg`;
+  return publicPath(`/textures/earth_day_${EARTH_DAY_MONTH_CODES[normalizedMonthIndex]}.jpg`);
 }
 
 export function earthTextureTimeline(dateMs: number): EarthTextureTimeline {

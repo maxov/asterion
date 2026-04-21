@@ -30,14 +30,15 @@ import {
 } from '../lib/constants.ts'
 import { kmToUnits } from '../lib/units.ts'
 import { usePreparedSharedTexture } from '../lib/useSharedTexture.ts'
+import { publicPath } from '../lib/publicPath.ts'
 
 const INNER = kmToUnits(RING_INNER_RADIUS)
 const OUTER = kmToUnits(RING_OUTER_RADIUS)
 const SATURN_EQUATORIAL = kmToUnits(SATURN_EQUATORIAL_RADIUS)
 const SATURN_POLAR = kmToUnits(SATURN_POLAR_RADIUS)
 const SEGMENTS = 512
-const COLOR_TEXTURE_PATH = '/textures/saturn_rings_color.png'
-const SCATTERING_TEXTURE_PATH = '/textures/saturn_rings_scattering.png'
+const COLOR_TEXTURE_PATH = publicPath('/textures/saturn_rings_color.png')
+const SCATTERING_TEXTURE_PATH = publicPath('/textures/saturn_rings_scattering.png')
 const MAX_TEXTURE_WIDTH = 4096
 const EXPANDED_TEXTURE_HEIGHT = 16
 const RING_SHADOW_TEXTURE_WIDTH = 4096
