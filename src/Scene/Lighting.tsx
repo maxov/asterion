@@ -9,6 +9,7 @@ const LIGHT_DISTANCE = 1000
 const SUN_DISC_DISTANCE = kmToUnits(STAR_SPHERE_RADIUS_KM) * 0.99
 const SUN_DISC_RADIUS = SUN_DISC_DISTANCE * 0.004
 const SUN_COLOR = new Color(0xfff5e1)
+const SUN_DISC_COLOR = SUN_COLOR.clone().multiplyScalar(3)
 
 export function Lighting() {
   const { timeOfYear, intensity } = useControls('Sun', {
@@ -54,7 +55,7 @@ export function Lighting() {
       {/* Visible sun disc — emissive so it blooms */}
       <mesh position={discPos}>
         <sphereGeometry args={[SUN_DISC_RADIUS, 32, 16]} />
-        <meshBasicMaterial color={SUN_COLOR} toneMapped={false} />
+        <meshBasicMaterial color={SUN_DISC_COLOR} toneMapped={false} />
       </mesh>
     </>
   )

@@ -1,6 +1,6 @@
 import { BackSide, AdditiveBlending, Color } from 'three'
 import { MeshBasicNodeMaterial } from 'three/webgpu'
-import { normalView, positionView, dot, pow, abs, float, vec3, uniform } from 'three/tsl'
+import { normalView, positionView, dot, pow, abs, vec3, uniform } from 'three/tsl'
 
 /**
  * TSL material for Saturn's atmospheric limb glow.

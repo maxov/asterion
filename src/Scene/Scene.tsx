@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { MathUtils } from 'three'
+import { Color, MathUtils } from 'three'
 import { useThree, useFrame } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useControls } from 'leva'
@@ -28,6 +28,7 @@ type Pipeline = { outputNode: unknown; renderAsync: () => Promise<void> }
 function Effects() {
   const { gl, scene, camera } = useThree()
   const pipelineRef = useRef<Pipeline | null>(null)
+  const renderInFlightRef = useRef(false)
 
   const { bloomThreshold, bloomStrength, bloomRadius } = useControls('Bloom', {
     bloomThreshold: { value: DEFAULT_BLOOM_THRESHOLD, min: 0, max: 2, step: 0.01, label: 'Threshold' },
@@ -37,6 +38,10 @@ function Effects() {
 
   const { exposure } = useControls('Tonemap', {
     exposure: { value: DEFAULT_EXPOSURE, min: 0.1, max: 5, step: 0.05, label: 'Exposure' },
+  })
+
+  const { postprocess } = useControls('Renderer', {
+    postprocess: { value: true, label: 'Postprocess' },
   })
 
   // Rebuild the node graph when bloom params change.
@@ -70,6 +75,7 @@ function Effects() {
     return () => {
       cancelled = true
       pipelineRef.current = null
+      renderInFlightRef.current = false
     }
   }, [gl, scene, camera, bloomStrength, bloomRadius, bloomThreshold])
 
@@ -82,11 +88,22 @@ function Effects() {
   }, [gl, exposure])
 
   useFrame(() => {
-    if (pipelineRef.current) {
-      pipelineRef.current.renderAsync()
-    } else {
+    if (!postprocess || !pipelineRef.current) {
       gl.render(scene, camera)
+      return
     }
+
+    if (renderInFlightRef.current) return
+
+    renderInFlightRef.current = true
+    void pipelineRef.current.renderAsync()
+      .catch((err) => {
+        console.warn('WebGPU postprocessing render failed, falling back to direct render:', err)
+        pipelineRef.current = null
+      })
+      .finally(() => {
+        renderInFlightRef.current = false
+      })
   }, 1)
 
   return null
@@ -131,8 +148,23 @@ function SmoothZoom() {
 // --- Scene root ----------------------------------------------------------
 
 const AXIAL_TILT_RAD = (SATURN_AXIAL_TILT_DEG * Math.PI) / 180
+const CANARY_COLOR = new Color('#ff1fbf')
+
+function DebugCanary() {
+  return (
+    <mesh position={[0, 0, 90]} renderOrder={10}>
+      <boxGeometry args={[6, 6, 6]} />
+      <meshBasicMaterial color={CANARY_COLOR} toneMapped={false} />
+    </mesh>
+  )
+}
 
 export function Scene() {
+  const { texturedSaturn, texturedRings, debugCanary } = useControls('Debug', {
+    texturedSaturn: { value: true, label: 'Saturn Texture' },
+    texturedRings: { value: true, label: 'Ring Texture' },
+    debugCanary: { value: false, label: 'Canary Cube' },
+  })
 
   return (
     <>
@@ -146,9 +178,10 @@ export function Scene() {
       <SmoothZoom />
 
       <group rotation={[0, 0, AXIAL_TILT_RAD]}>
-        <Saturn />
+        <Saturn textured={texturedSaturn} />
         <Atmosphere />
-        <Rings />
+        <Rings textured={texturedRings} />
+        {debugCanary ? <DebugCanary /> : null}
       </group>
 
       <Stars />
