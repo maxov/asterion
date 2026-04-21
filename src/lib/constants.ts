@@ -24,7 +24,8 @@ export const SUN_INTENSITY = Math.PI;
 export const DEFAULT_EXPOSURE = 1.0;
 
 // Bloom defaults: cinematic but still plausibly photographic
-export const DEFAULT_BLOOM_THRESHOLD = 0.72;
+export const DEFAULT_BLOOM_THRESHOLD = 0.8;
+// export const DEFAULT_BLOOM_THRESHOLD = 0.72;
 export const DEFAULT_BLOOM_STRENGTH = 0.6;
 export const DEFAULT_BLOOM_RADIUS = 0.55;
 
