@@ -15,7 +15,7 @@ from pipeline.commands.process import run_process
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="pipeline",
-        description="Texture processing pipeline for Penumbra.",
+        description="Texture processing pipeline for Asterion.",
     )
     sub = parser.add_subparsers(dest="command")
 

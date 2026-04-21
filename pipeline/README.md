@@ -1,6 +1,6 @@
 # Texture Processing Pipeline
 
-Downloads, processes, and installs planetary imagery for the Penumbra renderer.
+Downloads, processes, and installs planetary imagery for the Asterion renderer.
 
 ## Bootstrap
 
