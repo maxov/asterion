@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useControls } from 'leva'
 import {
+  AdditiveBlending,
   BackSide,
   BufferGeometry,
   CanvasTexture,
@@ -45,6 +46,10 @@ const RING_SHADOW_UMBRA_SOFTNESS = SATURN_EQUATORIAL * 0.012
 const RING_SHADOW_PENUMBRA_SOFTNESS = SATURN_EQUATORIAL * 0.055
 const RING_SHADOW_PENUMBRA_OPACITY = 0.58
 const RING_SHADOW_DENSITY_BOOST = 2.35
+const SATURNSHINE_COLOR = new Color(1.0, 0.91, 0.76)
+const SATURNSHINE_FILL_SCALE = 0.122
+const SATURNSHINE_FILL_MIN = 0.02
+const SATURNSHINE_FILL_MAX = 0.08
 const RING_SHADOW_SUN_PROJECTION_EPSILON = 1e-4
 const FALLBACK_COLOR = new Color(0.83, 0.77, 0.63)
 const PHASE_EPSILON = 0.002
@@ -392,18 +397,37 @@ function shadowCoverageFromInsideDistance(
   )
 }
 
+function computeSaturnshineFill(radius: number) {
+  const inverseSquare =
+    SATURNSHINE_FILL_SCALE * (SATURN_EQUATORIAL * SATURN_EQUATORIAL) /
+    (radius * radius)
+
+  return MathUtils.clamp(
+    inverseSquare,
+    SATURNSHINE_FILL_MIN,
+    SATURNSHINE_FILL_MAX,
+  )
+}
+
 function renderPlanetShadowTexture(
   bundle: RingShadowTextureBundle,
+  fillBundle: RingShadowTextureBundle | null,
   ringOpacityProfile: Float32Array | null,
   localSunDirection: Vector3,
   strength: number,
 ) {
   const { data } = bundle.imageData
   data.fill(0)
+  const fillData = fillBundle?.imageData.data
+  if (fillData) fillData.fill(0)
 
   if (!ringOpacityProfile || strength <= 0) {
     bundle.context.putImageData(bundle.imageData, 0, 0)
     bundle.texture.needsUpdate = true
+    if (fillBundle && fillData) {
+      fillBundle.context.putImageData(fillBundle.imageData, 0, 0)
+      fillBundle.texture.needsUpdate = true
+    }
     return
   }
 
@@ -411,6 +435,10 @@ function renderPlanetShadowTexture(
   if (projectionLength <= RING_SHADOW_SUN_PROJECTION_EPSILON) {
     bundle.context.putImageData(bundle.imageData, 0, 0)
     bundle.texture.needsUpdate = true
+    if (fillBundle && fillData) {
+      fillBundle.context.putImageData(fillBundle.imageData, 0, 0)
+      fillBundle.texture.needsUpdate = true
+    }
     return
   }
 
@@ -433,8 +461,9 @@ function renderPlanetShadowTexture(
     : Math.sqrt(
         semiMinorSquared +
           (SATURN_POLAR * SATURN_POLAR * projectionLength * projectionLength) /
-            (normalComponent * normalComponent),
+          (normalComponent * normalComponent),
       )
+  const fillStrength = Math.min(strength, 1)
 
   for (let y = 0; y < bundle.height; y += 1) {
     const cosAngle = bundle.angleCos[y]
@@ -505,11 +534,29 @@ function renderPlanetShadowTexture(
 
       const dst = (y * bundle.width + x) * 4
       data[dst + 3] = Math.round(alpha * 255)
+
+      if (fillData && fillBundle) {
+        const saturnshineFill = computeSaturnshineFill(radius)
+        const fillAlpha = Math.min(
+          fillStrength *
+            saturnshineFill *
+            boostedRingOpacity *
+            shadowCoverage,
+          1,
+        )
+        if (fillAlpha > 0) {
+          fillData[dst + 3] = Math.round(fillAlpha * 255)
+        }
+      }
     }
   }
 
   bundle.context.putImageData(bundle.imageData, 0, 0)
   bundle.texture.needsUpdate = true
+  if (fillBundle && fillData) {
+    fillBundle.context.putImageData(fillBundle.imageData, 0, 0)
+    fillBundle.texture.needsUpdate = true
+  }
 }
 
 function computeUnlitMix(viewPlaneDot: number, sunPlaneDot: number) {
@@ -620,6 +667,14 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
       ),
     [],
   )
+  const shadowFillBundle = useMemo(
+    () =>
+      createRingShadowTextureBundle(
+        RING_SHADOW_TEXTURE_WIDTH,
+        RING_SHADOW_TEXTURE_HEIGHT,
+      ),
+    [],
+  )
   const shadowMaterial = useMemo(() => {
     if (!shadowBundle) return null
 
@@ -632,11 +687,26 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
       toneMapped: false,
     })
   }, [shadowBundle])
+  const shadowFillMaterial = useMemo(() => {
+    if (!shadowFillBundle) return null
+
+    return new MeshBasicMaterial({
+      color: SATURNSHINE_COLOR,
+      map: shadowFillBundle.texture,
+      transparent: true,
+      premultipliedAlpha: true,
+      side: DoubleSide,
+      depthWrite: false,
+      blending: AdditiveBlending,
+      toneMapped: false,
+    })
+  }, [shadowFillBundle])
 
   useEffect(() => () => geometry.dispose(), [geometry])
   useEffect(() => () => fallback.dispose(), [fallback])
   useEffect(() => () => textureBundle?.texture.dispose(), [textureBundle])
   useEffect(() => () => shadowBundle?.texture.dispose(), [shadowBundle])
+  useEffect(() => () => shadowFillBundle?.texture.dispose(), [shadowFillBundle])
   useEffect(
     () => () => {
       materials?.back.dispose()
@@ -645,6 +715,7 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     [materials],
   )
   useEffect(() => () => shadowMaterial?.dispose(), [shadowMaterial])
+  useEffect(() => () => shadowFillMaterial?.dispose(), [shadowFillMaterial])
   useEffect(() => {
     if (colorError) console.warn(`Rings: failed to load ${COLOR_TEXTURE_PATH}`, colorError)
     if (scatteringError) console.warn(`Rings: failed to load ${SCATTERING_TEXTURE_PATH}`, scatteringError)
@@ -665,11 +736,18 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
       .normalize()
     renderPlanetShadowTexture(
       shadowBundle,
+      shadowFillBundle,
       shadowOpacityProfile,
       localSunDirectionRef.current,
       planetShadowStrength,
     )
-  }, [shadowBundle, shadowOpacityProfile, sunDirection, planetShadowStrength])
+  }, [
+    shadowBundle,
+    shadowFillBundle,
+    shadowOpacityProfile,
+    sunDirection,
+    planetShadowStrength,
+  ])
 
   useFrame(() => {
     if (!textured || !textureBundle || !ringGroupRef.current) return
@@ -725,6 +803,13 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
           renderOrder={3}
           geometry={geometry}
           material={shadowMaterial}
+        />
+      ) : null}
+      {shadowFillMaterial ? (
+        <mesh
+          renderOrder={4}
+          geometry={geometry}
+          material={shadowFillMaterial}
         />
       ) : null}
     </group>
