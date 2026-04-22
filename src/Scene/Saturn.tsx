@@ -6,7 +6,6 @@ import {
   useState,
 } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useControls } from "leva";
 import {
   CanvasTexture,
   ClampToEdgeWrapping,
@@ -267,11 +266,13 @@ function renderShadowTexture(
 
 type SaturnProps = {
   localSunDirection: Vector3;
+  ringShadowStrength?: number;
   textured?: boolean;
 };
 
 export function Saturn({
   localSunDirection,
+  ringShadowStrength = 0.78,
   textured = true,
 }: SaturnProps) {
   const camera = useThree((state) => state.camera);
@@ -289,16 +290,6 @@ export function Saturn({
   const { texture: scatteringTexture, error: scatteringError } = useSharedTexture(
     SCATTERING_TEXTURE_PATH,
   );
-
-  const { ringShadowStrength } = useControls("Saturn", {
-    ringShadowStrength: {
-      value: 0.78,
-      min: 0,
-      max: 1,
-      step: 0.01,
-      label: "Ring Shadow",
-    },
-  });
 
   const fallback = useMemo(
     () =>

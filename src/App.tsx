@@ -590,6 +590,40 @@ function createRenderer(
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = DEFAULT_EXPOSURE;
   renderer.outputColorSpace = SRGBColorSpace;
+
+  const debugRenderer = renderer as WebGLRenderer & {
+    debug?: {
+      checkShaderErrors?: boolean;
+      onShaderError?: (
+        gl: WebGLRenderingContext | WebGL2RenderingContext,
+        program: WebGLProgram,
+        glVertexShader: WebGLShader,
+        glFragmentShader: WebGLShader,
+      ) => void;
+    };
+  };
+
+  if (debugRenderer.debug) {
+    debugRenderer.debug.checkShaderErrors = true;
+    debugRenderer.debug.onShaderError = (
+      gl,
+      program,
+      glVertexShader,
+      glFragmentShader,
+    ) => {
+      console.groupCollapsed("WebGL shader compile error");
+      console.error("Program info:", gl.getProgramInfoLog(program));
+      console.error("Vertex info:", gl.getShaderInfoLog(glVertexShader));
+      console.error("Fragment info:", gl.getShaderInfoLog(glFragmentShader));
+      console.log("Vertex shader source:\n", gl.getShaderSource(glVertexShader));
+      console.log(
+        "Fragment shader source:\n",
+        gl.getShaderSource(glFragmentShader),
+      );
+      console.groupEnd();
+    };
+  }
+
   return renderer;
 }
 

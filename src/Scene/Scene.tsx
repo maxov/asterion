@@ -9,7 +9,7 @@ import {
 } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useControls } from "leva";
+import { folder, useControls } from "leva";
 import { Color, MathUtils, Object3D, Vector2, Vector3, type Group } from "three";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
@@ -335,11 +335,82 @@ export const Scene = memo(function Scene({
     [],
   );
 
-  const { texturedSaturn, texturedRings, debugCanary } = useControls("Debug", {
-    texturedSaturn: { value: true, label: "Saturn Texture" },
-    texturedRings: { value: true, label: "Ring Texture" },
-    debugCanary: { value: false, label: "Canary Cube" },
-  });
+  const {
+    ringShadowStrength,
+    ringOpacity,
+    ringChromaGain,
+    ringWarmth,
+    planetShadowStrength,
+    atmosphereIntensity,
+    atmospherePower,
+    texturedSaturn,
+    texturedRings,
+    debugCanary,
+  } = useControls(
+    "Saturn",
+    {
+      Look: folder({
+        ringShadowStrength: {
+          value: 0.78,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: "Ring Shadow",
+        },
+        ringOpacity: {
+          value: 0.7,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: "Ring Opacity",
+        },
+        ringChromaGain: {
+          value: 3.5,
+          min: 1,
+          max: 6,
+          step: 0.05,
+          label: "Ring Chroma",
+        },
+        ringWarmth: {
+          value: 0.4,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: "Ring Warmth",
+        },
+        planetShadowStrength: {
+          value: 1.15,
+          min: 0,
+          max: 1.5,
+          step: 0.01,
+          label: "Planet Shadow",
+        },
+        atmosphereIntensity: {
+          value: 0.15,
+          min: 0,
+          max: 1,
+          step: 0.01,
+          label: "Glow Intensity",
+        },
+        atmospherePower: {
+          value: 4.0,
+          min: 1,
+          max: 10,
+          step: 0.1,
+          label: "Glow Power",
+        },
+      }),
+      Debug: folder(
+        {
+          texturedSaturn: { value: true, label: "Saturn Texture" },
+          texturedRings: { value: true, label: "Ring Texture" },
+          debugCanary: { value: false, label: "Canary Cube" },
+        },
+        { collapsed: true },
+      ),
+    },
+    { collapsed: false },
+  );
 
   const { sunIntensity } = useControls("Lighting", {
     sunIntensity: {
@@ -521,11 +592,19 @@ export const Scene = memo(function Scene({
           <group ref={saturnSpinRef}>
             <Saturn
               localSunDirection={saturnLocalSunDirectionRef.current}
+              ringShadowStrength={ringShadowStrength}
               textured={texturedSaturn}
             />
-            <Atmosphere />
+            <Atmosphere
+              intensity={atmosphereIntensity}
+              power={atmospherePower}
+            />
           </group>
           <Rings
+            chromaGain={ringChromaGain}
+            opacity={ringOpacity}
+            planetShadowStrength={planetShadowStrength}
+            warmth={ringWarmth}
             textured={texturedRings}
             sunDirection={simulationRef.current.bodies.saturn.sunDirectionWorld}
           />

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { useControls } from 'leva'
 import {
   AdditiveBlending,
   BackSide,
@@ -630,10 +629,21 @@ function createTexturedMaterial(
 
 type RingsProps = {
   sunDirection: Vector3
+  chromaGain?: number
+  opacity?: number
+  planetShadowStrength?: number
   textured?: boolean
+  warmth?: number
 }
 
-export function Rings({ sunDirection, textured = true }: RingsProps) {
+export function Rings({
+  sunDirection,
+  chromaGain = 3.5,
+  opacity = 0.7,
+  planetShadowStrength = 1.15,
+  textured = true,
+  warmth = 0.4,
+}: RingsProps) {
   const { camera } = useThree()
   const ringGroupRef = useRef<Group>(null)
   const ringWorldPositionRef = useRef(new Vector3())
@@ -656,19 +666,6 @@ export function Rings({ sunDirection, textured = true }: RingsProps) {
     'saturn-rings-scattering',
     configureRingTexture,
   )
-
-  const { opacity, chromaGain, warmth, planetShadowStrength } = useControls('Rings', {
-    opacity: { value: 0.7, min: 0, max: 1, step: 0.01, label: 'Opacity' },
-    chromaGain: { value: 3.5, min: 1, max: 6, step: 0.05, label: 'Color Chroma' },
-    warmth: { value: 0.4, min: 0, max: 1, step: 0.01, label: 'Warmth' },
-    planetShadowStrength: {
-      value: 1.15,
-      min: 0,
-      max: 1.5,
-      step: 0.01,
-      label: 'Planet Shadow',
-    },
-  })
 
   const geometry = useMemo(() => createRingGeometry(INNER, OUTER, SEGMENTS), [])
 

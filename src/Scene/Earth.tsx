@@ -6,7 +6,8 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
+import { folder, useControls } from "leva";
 import {
   AdditiveBlending,
   BackSide,
@@ -17,10 +18,10 @@ import {
   Group,
   LinearFilter,
   MeshBasicMaterial,
-  MeshPhysicalMaterial,
   MeshStandardMaterial,
   SRGBColorSpace,
   Vector3,
+  type Mesh,
 } from "three";
 import { EARTH_RADIUS_KM } from "../lib/constants.ts";
 import type { SolarSystemState } from "../lib/solarSystemState.ts";
@@ -33,6 +34,22 @@ import {
   earthTextureTimeline,
 } from "../lib/planetTextures.ts";
 import { usePreparedSharedTexture } from "../lib/useSharedTexture.ts";
+import {
+  createEarthAtmosphereMaterial,
+  EARTH_ATMOSPHERE_DEBUG_VIEW_IDS,
+  type EarthAtmosphereDebugView,
+} from "../shaders/earthAtmosphereMaterial.ts";
+import { createEarthCloudMaterial } from "../shaders/earthCloudMaterial.ts";
+import {
+  createEarthAuroraMaterial,
+  EARTH_AURORA_DEBUG_VIEW_IDS,
+  type EarthAuroraDebugView,
+} from "../shaders/earthAuroraMaterial.ts";
+import {
+  createEarthMaterial,
+  EARTH_SURFACE_DEBUG_VIEW_IDS,
+  type EarthSurfaceDebugView,
+} from "../shaders/earthMaterial.ts";
 
 const EARTH_RADIUS = kmToUnits(EARTH_RADIUS_KM);
 const ATMOSPHERE_SCALE = 1.02;
@@ -44,6 +61,49 @@ const CLOUD_DRIFT_PERIOD_MS = 96 * 3_600_000;
 const AURORA_LOOP_MS = 9 * 3_600_000;
 const EARTH_ATMOSPHERE_COLOR = new Color("#66a9ff");
 const AURORA_BASE_COLOR = new Color("#80ffd7");
+const DEFAULT_CUSTOM_NIGHT_LIGHTS = 0.98;
+const DEFAULT_CUSTOM_ATMOSPHERE_INTENSITY = 0.8;
+const DEFAULT_CUSTOM_ATMOSPHERE_POWER = 4.8;
+const DEFAULT_CUSTOM_AURORA_INTENSITY = 0.82;
+const AURORA_SCREEN_DIAMETER_FADE_START = 0.16;
+const AURORA_SCREEN_DIAMETER_FADE_END = 0.34;
+const CITY_LIGHTS_SCREEN_DIAMETER_FADE_START = 0.07;
+const CITY_LIGHTS_SCREEN_DIAMETER_FADE_END = 0.24;
+const SURFACE_MODE_OPTIONS = {
+  Standard: "standard",
+  Custom: "custom",
+} as const;
+const SHELL_MODE_OPTIONS = {
+  Off: "off",
+  Basic: "basic",
+  Custom: "custom",
+} as const;
+const SURFACE_DEBUG_OPTIONS: Record<string, EarthSurfaceDebugView> = {
+  Beauty: "beauty",
+  DayTexture: "dayTexture",
+  NightTexture: "nightTexture",
+  BlendFactor: "blendFactor",
+  SunAlignment: "sunAlignment",
+  WaterMask: "waterMask",
+  CityLights: "cityLights",
+  Specular: "specular",
+};
+const ATMOSPHERE_DEBUG_OPTIONS: Record<string, EarthAtmosphereDebugView> = {
+  Beauty: "beauty",
+  Fresnel: "fresnel",
+  Daylight: "daylight",
+  Twilight: "twilight",
+  SunAlignment: "sunAlignment",
+  Opacity: "opacity",
+};
+const AURORA_DEBUG_OPTIONS: Record<string, EarthAuroraDebugView> = {
+  Beauty: "beauty",
+  PolarMask: "polarMask",
+  RibbonMask: "ribbonMask",
+  IlluminationMask: "illuminationMask",
+  ViewMask: "viewMask",
+  AuroraMask: "auroraMask",
+};
 
 type EarthProps = {
   localSunDirection: Vector3;
@@ -105,17 +165,107 @@ function createAuroraTexture() {
 }
 
 export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
-  void localSunDirection;
+  const camera = useThree((state) => state.camera);
+  const {
+    customNightLights,
+    customAtmosphereIntensity,
+    customAtmospherePower,
+    customAuroraIntensity,
+    surfaceMode,
+    surfaceDebugView,
+    atmosphereMode,
+    atmosphereDebugView,
+    auroraMode,
+    auroraDebugView,
+  } = useControls(
+    "Earth",
+    {
+      Look: folder({
+        customNightLights: {
+          value: DEFAULT_CUSTOM_NIGHT_LIGHTS,
+          min: 0,
+          max: 2.5,
+          step: 0.01,
+          label: "Night Lights",
+        },
+        customAtmosphereIntensity: {
+          value: DEFAULT_CUSTOM_ATMOSPHERE_INTENSITY,
+          min: 0,
+          max: 1.5,
+          step: 0.01,
+          label: "Atmo Intensity",
+        },
+        customAtmospherePower: {
+          value: DEFAULT_CUSTOM_ATMOSPHERE_POWER,
+          min: 1,
+          max: 10,
+          step: 0.1,
+          label: "Atmo Power",
+        },
+        customAuroraIntensity: {
+          value: DEFAULT_CUSTOM_AURORA_INTENSITY,
+          min: 0,
+          max: 2.5,
+          step: 0.01,
+          label: "Aurora Intensity",
+        },
+      }),
+      Debug: folder(
+        {
+          surfaceMode: {
+            value: SURFACE_MODE_OPTIONS.Custom,
+            options: SURFACE_MODE_OPTIONS,
+            label: "Surface Mode",
+          },
+          surfaceDebugView: {
+            value: SURFACE_DEBUG_OPTIONS.Beauty,
+            options: SURFACE_DEBUG_OPTIONS,
+            label: "Surface View",
+          },
+          atmosphereMode: {
+            value: SHELL_MODE_OPTIONS.Custom,
+            options: SHELL_MODE_OPTIONS,
+            label: "Atmosphere Mode",
+          },
+          atmosphereDebugView: {
+            value: ATMOSPHERE_DEBUG_OPTIONS.Beauty,
+            options: ATMOSPHERE_DEBUG_OPTIONS,
+            label: "Atmosphere View",
+          },
+          auroraMode: {
+            value: SHELL_MODE_OPTIONS.Custom,
+            options: SHELL_MODE_OPTIONS,
+            label: "Aurora Mode",
+          },
+          auroraDebugView: {
+            value: AURORA_DEBUG_OPTIONS.Beauty,
+            options: AURORA_DEBUG_OPTIONS,
+            label: "Aurora View",
+          },
+        },
+        { collapsed: true },
+      ),
+    },
+    { collapsed: false },
+  );
   const timelineRef = useRef(earthTextureTimeline(simulationStateRef.current.dateMs));
   const [monthIndex, setMonthIndex] = useState(timelineRef.current.monthIndex);
   const monthIndexRef = useRef(monthIndex);
+  const surfaceMeshRef = useRef<Mesh>(null);
   const cloudSpinRef = useRef<Group>(null);
   const auroraSpinRef = useRef<Group>(null);
+  const earthWorldPositionRef = useRef(new Vector3());
   const currentDayPath = earthDayTexturePathForMonth(monthIndex);
+  const nextDayPath = earthDayTexturePathForMonth((monthIndex + 1) % 12);
 
   const { texture: dayTexture, error: dayError } = usePreparedSharedTexture(
     currentDayPath,
     `earth-day-${monthIndex}`,
+    configureSrgbTexture,
+  );
+  const { texture: nextDayTexture, error: nextDayError } = usePreparedSharedTexture(
+    nextDayPath,
+    `earth-day-${(monthIndex + 1) % 12}`,
     configureSrgbTexture,
   );
   const { texture: nightTexture, error: nightError } = usePreparedSharedTexture(
@@ -150,20 +300,21 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       metalness: 0,
     });
   }, [dayTexture, nightTexture]);
-  const cloudMaterial = useMemo(() => {
+  const customEarthMaterialBundle = useMemo(() => {
+    if (!dayTexture || !nightTexture) return null;
+
+    return createEarthMaterial(
+      dayTexture,
+      nightTexture,
+      nextDayTexture ?? null,
+      timelineRef.current.blend,
+      customNightLights,
+    );
+  }, [customNightLights, dayTexture, nightTexture, nextDayTexture]);
+  const cloudMaterialBundle = useMemo(() => {
     if (!cloudTexture) return null;
 
-    return new MeshPhysicalMaterial({
-      alphaMap: cloudTexture,
-      map: cloudTexture,
-      transparent: true,
-      opacity: 0.62,
-      alphaTest: 0.04,
-      depthWrite: false,
-      side: FrontSide,
-      roughness: 0.92,
-      metalness: 0,
-    });
+    return createEarthCloudMaterial(cloudTexture);
   }, [cloudTexture]);
   const atmosphereMaterial = useMemo(
     () =>
@@ -175,6 +326,10 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
         depthWrite: false,
         blending: AdditiveBlending,
       }),
+    [],
+  );
+  const customAtmosphereMaterialBundle = useMemo(
+    () => createEarthAtmosphereMaterial(),
     [],
   );
   const auroraTexture = useMemo(
@@ -194,6 +349,10 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
       blending: AdditiveBlending,
     });
   }, [auroraTexture]);
+  const customAuroraMaterialBundle = useMemo(
+    () => createEarthAuroraMaterial(),
+    [],
+  );
 
   useEffect(() => {
     monthIndexRef.current = monthIndex;
@@ -207,24 +366,44 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
   }, [earthMaterial]);
   useEffect(() => {
     return () => {
-      cloudMaterial?.dispose();
+      customEarthMaterialBundle?.material.dispose();
     };
-  }, [cloudMaterial]);
+  }, [customEarthMaterialBundle]);
+  useEffect(() => {
+    return () => {
+      cloudMaterialBundle?.material.dispose();
+    };
+  }, [cloudMaterialBundle]);
   useEffect(() => {
     return () => atmosphereMaterial.dispose();
   }, [atmosphereMaterial]);
+  useEffect(() => {
+    return () => {
+      customAtmosphereMaterialBundle?.material.dispose();
+    };
+  }, [customAtmosphereMaterialBundle]);
   useEffect(() => {
     return () => {
       auroraMaterial?.dispose();
       auroraTexture?.dispose();
     };
   }, [auroraMaterial, auroraTexture]);
+  useEffect(() => {
+    return () => {
+      customAuroraMaterialBundle?.material.dispose();
+    };
+  }, [customAuroraMaterialBundle]);
 
   useEffect(() => {
     if (dayError) {
       console.warn(`Earth: failed to load ${currentDayPath}`, dayError);
     }
   }, [currentDayPath, dayError]);
+  useEffect(() => {
+    if (nextDayError) {
+      console.warn(`Earth: failed to preload ${nextDayPath}`, nextDayError);
+    }
+  }, [nextDayError, nextDayPath]);
   useEffect(() => {
     if (nightError) {
       console.warn(
@@ -243,12 +422,65 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     const simulationDateMs = simulationStateRef.current.dateMs;
     const timeline = earthTextureTimeline(simulationDateMs);
     timelineRef.current = timeline;
+    const customSurface = customEarthMaterialBundle;
+    const customAtmosphere = customAtmosphereMaterialBundle;
+    const clouds = cloudMaterialBundle;
+    const customAurora = customAuroraMaterialBundle;
 
     if (timeline.monthIndex !== monthIndexRef.current) {
       monthIndexRef.current = timeline.monthIndex;
       startTransition(() => {
         setMonthIndex(timeline.monthIndex);
       });
+    }
+
+    let cityLightVisibility = 1;
+    let auroraVisibility = 1;
+    if (surfaceMeshRef.current && "isPerspectiveCamera" in camera) {
+      surfaceMeshRef.current.getWorldPosition(earthWorldPositionRef.current);
+      const distanceToEarth = camera.position.distanceTo(earthWorldPositionRef.current);
+      const clampedDistance = Math.max(distanceToEarth, EARTH_RADIUS * 1.001);
+      const angularDiameter =
+        2 * Math.asin(Math.min(1, EARTH_RADIUS / clampedDistance));
+      const screenDiameter = angularDiameter / ((camera.fov * Math.PI) / 180);
+      const cityNormalized =
+        (screenDiameter - CITY_LIGHTS_SCREEN_DIAMETER_FADE_START) /
+        (CITY_LIGHTS_SCREEN_DIAMETER_FADE_END -
+          CITY_LIGHTS_SCREEN_DIAMETER_FADE_START);
+      cityLightVisibility = Math.max(0, Math.min(1, cityNormalized));
+      cityLightVisibility =
+        cityLightVisibility * cityLightVisibility * (3 - 2 * cityLightVisibility);
+      const auroraNormalized =
+        (screenDiameter - AURORA_SCREEN_DIAMETER_FADE_START) /
+        (AURORA_SCREEN_DIAMETER_FADE_END - AURORA_SCREEN_DIAMETER_FADE_START);
+      auroraVisibility = Math.max(0, Math.min(1, auroraNormalized));
+      auroraVisibility =
+        auroraVisibility * auroraVisibility * (3 - 2 * auroraVisibility);
+    }
+
+    if (customSurface) {
+      customSurface.cityLightVisibilityUniform.value = cityLightVisibility;
+      customSurface.monthBlendUniform.value = timeline.blend;
+      customSurface.nightLightsUniform.value = customNightLights;
+      customSurface.sunDirectionUniform.value.copy(localSunDirection).normalize();
+      customSurface.debugViewUniform.value =
+        EARTH_SURFACE_DEBUG_VIEW_IDS[surfaceDebugView];
+    }
+    if (earthMaterial) {
+      earthMaterial.emissiveIntensity =
+        (nightTexture ? NIGHT_LIGHTS_INTENSITY * 0.18 : 0) * cityLightVisibility;
+    }
+    if (customAtmosphere) {
+      customAtmosphere.sunDirectionUniform.value
+        .copy(localSunDirection)
+        .normalize();
+      customAtmosphere.intensityUniform.value = customAtmosphereIntensity;
+      customAtmosphere.powerUniform.value = customAtmospherePower;
+      customAtmosphere.debugViewUniform.value =
+        EARTH_ATMOSPHERE_DEBUG_VIEW_IDS[atmosphereDebugView];
+    }
+    if (clouds) {
+      clouds.sunDirectionUniform.value.copy(localSunDirection).normalize();
     }
 
     if (cloudSpinRef.current) {
@@ -264,18 +496,49 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
         (((simulationDateMs % AURORA_LOOP_MS) + AURORA_LOOP_MS) % AURORA_LOOP_MS) /
         AURORA_LOOP_MS;
       auroraSpinRef.current.rotation.y = auroraPhase * Math.PI * 2;
+      if (customAurora) {
+        customAurora.phaseUniform.value = auroraPhase;
+      }
+    }
+
+    if (customAurora) {
+      customAurora.sunDirectionUniform.value.copy(localSunDirection).normalize();
+      customAurora.intensityUniform.value = customAuroraIntensity;
+      customAurora.visibilityUniform.value = auroraVisibility;
+      customAurora.debugViewUniform.value =
+        EARTH_AURORA_DEBUG_VIEW_IDS[auroraDebugView];
+    }
+    if (auroraMaterial) {
+      auroraMaterial.opacity = 0.9 * auroraVisibility;
     }
   });
 
+  const surfaceMaterial =
+    surfaceMode === SURFACE_MODE_OPTIONS.Custom
+      ? customEarthMaterialBundle?.material ?? fallbackMaterial
+      : earthMaterial ?? fallbackMaterial;
+  const activeAtmosphereMaterial =
+    atmosphereMode === SHELL_MODE_OPTIONS.Custom
+      ? customAtmosphereMaterialBundle?.material ?? null
+      : atmosphereMode === SHELL_MODE_OPTIONS.Basic
+        ? atmosphereMaterial
+        : null;
+  const activeAuroraMaterial =
+    auroraMode === SHELL_MODE_OPTIONS.Custom
+      ? customAuroraMaterialBundle?.material ?? null
+      : auroraMode === SHELL_MODE_OPTIONS.Basic
+        ? auroraMaterial
+        : null;
+
   return (
     <>
-      <mesh material={earthMaterial ?? fallbackMaterial}>
+      <mesh ref={surfaceMeshRef} material={surfaceMaterial}>
         <sphereGeometry args={[EARTH_RADIUS, 128, 64]} />
       </mesh>
-      {cloudMaterial ? (
+      {cloudMaterialBundle ? (
         <group ref={cloudSpinRef}>
           <mesh
-            material={cloudMaterial}
+            material={cloudMaterialBundle.material}
             renderOrder={1}
             scale={[CLOUD_LAYER_SCALE, CLOUD_LAYER_SCALE, CLOUD_LAYER_SCALE]}
           >
@@ -283,20 +546,20 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
           </mesh>
         </group>
       ) : null}
-      {auroraMaterial ? (
+      {activeAuroraMaterial ? (
         <group
           ref={auroraSpinRef}
           renderOrder={2}
           scale={[AURORA_LAYER_SCALE, AURORA_LAYER_SCALE, AURORA_LAYER_SCALE]}
         >
-          <mesh material={auroraMaterial}>
+          <mesh material={activeAuroraMaterial}>
             <sphereGeometry args={[EARTH_RADIUS, 96, 48]} />
           </mesh>
         </group>
       ) : null}
-      {atmosphereMaterial ? (
+      {activeAtmosphereMaterial ? (
         <mesh
-          material={atmosphereMaterial}
+          material={activeAtmosphereMaterial}
           renderOrder={3}
           scale={[ATMOSPHERE_SCALE, ATMOSPHERE_SCALE, ATMOSPHERE_SCALE]}
         >

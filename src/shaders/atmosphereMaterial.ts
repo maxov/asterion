@@ -50,9 +50,6 @@ export function createAtmosphereMaterial(
       varying vec3 vNormalView;
       varying vec3 vViewPosition;
 
-      #include <tonemapping_pars_fragment>
-      #include <colorspace_pars_fragment>
-
       void main() {
         vec3 normal = normalize(vNormalView);
         vec3 viewDir = normalize(-vViewPosition);
