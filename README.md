@@ -1,12 +1,10 @@
-# Asterion — Solar System WebGPU Renderer
+# Asterion — Solar System WebGL Renderer
 
-Physically-grounded solar system renderer running in the browser via Three.js WebGPU.
+Physically-grounded solar system renderer running in the browser via Three.js WebGL.
 
 ## Requirements
 
-**WebGPU is required.** The app will not fall back to WebGL.
-Use Chrome 113+, Edge 113+, or Safari 26+. See
-[browser compatibility](https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API#browser_compatibility).
+The app currently runs on the WebGL renderer path only.
 
 ## Setup
 
@@ -76,7 +74,7 @@ to a logarithmic depth buffer or camera-relative rendering.
 ```
 src/
   main.tsx              React entry
-  App.tsx               WebGPU init, Canvas, Leva panel toggle
+  App.tsx               WebGL init, Canvas, Leva panel toggle
   Scene/
     Scene.tsx           R3F scene composition + postprocessing (bloom)
     Saturn.tsx          Oblate sphere, PBR material, optional textures
@@ -86,7 +84,7 @@ src/
   lib/
     constants.ts        Physical constants (Saturn dimensions, radii, tilt)
     units.ts            km to scene-unit conversion
-  shaders/              Empty for v0 — TSL shader modules will live here
+  shaders/              WebGL shader modules for Earth + atmosphere effects
 public/
   textures/             Drop texture files here (not bundled)
 ```

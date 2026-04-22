@@ -10,7 +10,10 @@ import {
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useControls } from "leva";
-import { Color, MathUtils, Object3D, Vector3, type Group } from "three";
+import { Color, MathUtils, Object3D, Vector2, Vector3, type Group } from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Atmosphere } from "./Atmosphere.tsx";
 import { Earth } from "./Earth.tsx";
 import { Lighting } from "./Lighting.tsx";
@@ -50,10 +53,7 @@ import {
   timelineSystemMs,
   type SimulationTimeline,
 } from "../lib/simulationTimeline.ts";
-import type { RendererMode } from "../lib/rendererMode.ts";
 import { kmToUnits } from "../lib/units.ts";
-
-type Pipeline = { outputNode: unknown; renderAsync: () => Promise<void> };
 
 type OrbitControlsHandle = ElementRef<typeof OrbitControls>;
 type BodyAnchorMap = Record<BodyId, RefObject<Object3D | null>>;
@@ -63,7 +63,6 @@ type SceneProps = {
   timeline: SimulationTimeline;
   /** Written every frame with the camera-to-target distance in scene units. */
   cameraDistanceRef?: RefObject<number>;
-  rendererMode: RendererMode;
 };
 
 const BODY_IDS = Object.keys(BODY_DEFINITIONS) as BodyId[];
@@ -100,10 +99,10 @@ function clampFocusDistance(bodyId: BodyId, distanceUnits: number) {
   return MathUtils.clamp(distanceUnits, minDistance, maxDistance);
 }
 
-function Effects({ rendererMode }: { rendererMode: RendererMode }) {
-  const { gl, scene, camera } = useThree();
-  const pipelineRef = useRef<Pipeline | null>(null);
-  const renderInFlightRef = useRef(false);
+function Effects() {
+  const { gl, scene, camera, size } = useThree();
+  const composerRef = useRef<EffectComposer | null>(null);
+  const bloomPassRef = useRef<UnrealBloomPass | null>(null);
 
   const { bloomThreshold, bloomStrength, bloomRadius } = useControls("Bloom", {
     bloomThreshold: {
@@ -144,51 +143,44 @@ function Effects({ rendererMode }: { rendererMode: RendererMode }) {
   });
 
   useEffect(() => {
-    if (rendererMode !== "webgpu") {
-      pipelineRef.current = null;
-      renderInFlightRef.current = false;
-      return;
-    }
+    const composer = new EffectComposer(gl);
+    const renderPass = new RenderPass(scene, camera);
+    const bloomPass = new UnrealBloomPass(
+      new Vector2(size.width, size.height),
+      bloomStrength,
+      bloomRadius,
+      bloomThreshold,
+    );
 
-    let cancelled = false;
+    composer.addPass(renderPass);
+    composer.addPass(bloomPass);
+    composer.setPixelRatio(gl.getPixelRatio());
+    composer.setSize(size.width, size.height);
+    composerRef.current = composer;
+    bloomPassRef.current = bloomPass;
 
-    async function init() {
-      try {
-        const [{ RenderPipeline }, { pass }, { bloom }] = await Promise.all([
-          import("three/webgpu"),
-          import("three/tsl"),
-          import("three/addons/tsl/display/BloomNode.js"),
-        ] as const);
-
-        if (cancelled) return;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pipeline = new (RenderPipeline as any)(gl) as Pipeline;
-        const scenePass = pass(scene, camera);
-        const tex = scenePass.getTextureNode();
-        const bloomPass = bloom(
-          tex,
-          bloomStrength,
-          bloomRadius,
-          bloomThreshold,
-        );
-        pipeline.outputNode = tex.add(bloomPass);
-        pipelineRef.current = pipeline;
-      } catch (err) {
-        console.warn(
-          "WebGPU postprocessing unavailable, falling back to direct render:",
-          err,
-        );
-      }
-    }
-
-    init();
     return () => {
-      cancelled = true;
-      pipelineRef.current = null;
-      renderInFlightRef.current = false;
+      composerRef.current = null;
+      bloomPassRef.current = null;
+      bloomPass.dispose();
+      composer.dispose();
     };
-  }, [gl, scene, camera, bloomStrength, bloomRadius, bloomThreshold, rendererMode]);
+  }, [gl, scene, camera, size.height, size.width]);
+
+  useEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.setPixelRatio(gl.getPixelRatio());
+    composer.setSize(size.width, size.height);
+  }, [gl, size.height, size.width]);
+
+  useEffect(() => {
+    const bloomPass = bloomPassRef.current;
+    if (!bloomPass) return;
+    bloomPass.threshold = bloomThreshold;
+    bloomPass.strength = bloomStrength;
+    bloomPass.radius = bloomRadius;
+  }, [bloomThreshold, bloomStrength, bloomRadius]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/immutability
@@ -197,31 +189,12 @@ function Effects({ rendererMode }: { rendererMode: RendererMode }) {
   }, [gl, exposure]);
 
   useFrame(() => {
-    if (rendererMode !== "webgpu") {
+    if (!postprocess || !composerRef.current) {
       gl.render(scene, camera);
       return;
     }
 
-    if (!postprocess || !pipelineRef.current) {
-      gl.render(scene, camera);
-      return;
-    }
-
-    if (renderInFlightRef.current) return;
-
-    renderInFlightRef.current = true;
-    void pipelineRef.current
-      .renderAsync()
-      .catch((err) => {
-        console.warn(
-          "WebGPU postprocessing render failed, falling back to direct render:",
-          err,
-        );
-        pipelineRef.current = null;
-      })
-      .finally(() => {
-        renderInFlightRef.current = false;
-      });
+    composerRef.current.render();
   }, 1);
 
   return null;
@@ -329,7 +302,6 @@ export const Scene = memo(function Scene({
   activeMissionId,
   timeline,
   cameraDistanceRef,
-  rendererMode,
 }: SceneProps) {
   const camera = useThree((state) => state.camera);
   const controlsRef = useRef<OrbitControlsHandle | null>(null);
@@ -549,10 +521,9 @@ export const Scene = memo(function Scene({
           <group ref={saturnSpinRef}>
             <Saturn
               localSunDirection={saturnLocalSunDirectionRef.current}
-              rendererMode={rendererMode}
               textured={texturedSaturn}
             />
-            <Atmosphere rendererMode={rendererMode} />
+            <Atmosphere />
           </group>
           <Rings
             textured={texturedRings}
@@ -572,7 +543,6 @@ export const Scene = memo(function Scene({
           <group ref={earthSpinRef}>
             <Earth
               localSunDirection={simulationRef.current.bodies.earth.sunDirectionWorld}
-              rendererMode={rendererMode}
               simulationStateRef={simulationRef}
             />
           </group>
@@ -603,7 +573,7 @@ export const Scene = memo(function Scene({
       {focusBodyId === "sun" ? null : (
         <Lighting direction={simulationRef.current.focusSunDirectionWorld} />
       )}
-      <Effects rendererMode={rendererMode} />
+      <Effects />
     </>
   );
 });

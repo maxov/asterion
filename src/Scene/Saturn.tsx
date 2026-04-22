@@ -21,7 +21,6 @@ import {
   type Texture,
   Vector3,
 } from "three";
-import { MeshStandardNodeMaterial } from "three/webgpu";
 import {
   RING_INNER_RADIUS,
   RING_OUTER_RADIUS,
@@ -34,7 +33,6 @@ import {
   useSharedTexture,
 } from "../lib/useSharedTexture.ts";
 import { publicPath } from "../lib/publicPath.ts";
-import type { RendererMode } from "../lib/rendererMode.ts";
 
 const EQUATORIAL = kmToUnits(SATURN_EQUATORIAL_RADIUS);
 const POLAR_SCALE = SATURN_POLAR_RADIUS / SATURN_EQUATORIAL_RADIUS;
@@ -269,13 +267,11 @@ function renderShadowTexture(
 
 type SaturnProps = {
   localSunDirection: Vector3;
-  rendererMode: RendererMode;
   textured?: boolean;
 };
 
 export function Saturn({
   localSunDirection,
-  rendererMode,
   textured = true,
 }: SaturnProps) {
   const camera = useThree((state) => state.camera);
@@ -330,14 +326,13 @@ export function Saturn({
   }, [scatteringError]);
 
   const material = useMemo(() => {
-    if (rendererMode !== "webgpu") return null;
     if (!textured || !texture) return null;
-    const mat = new MeshStandardNodeMaterial();
-    mat.map = texture;
-    mat.roughness = 0.85;
-    mat.metalness = 0;
-    return mat;
-  }, [rendererMode, textured, texture]);
+    return new MeshStandardMaterial({
+      map: texture,
+      roughness: 0.85,
+      metalness: 0,
+    });
+  }, [textured, texture]);
 
   useEffect(() => {
     return () => {

@@ -1,25 +1,7 @@
-import { type Texture, Vector3 } from "three";
-import { MeshPhysicalNodeMaterial } from "three/webgpu";
-import {
-  abs,
-  clamp,
-  dot,
-  float,
-  max,
-  mix,
-  normalView,
-  normalWorld,
-  positionView,
-  pow,
-  smoothstep,
-  texture,
-  uniform,
-  uv,
-  vec3,
-} from "three/tsl";
+import { ShaderMaterial, type Texture, Vector3 } from "three";
 
 export type EarthMaterialBundle = {
-  material: InstanceType<typeof MeshPhysicalNodeMaterial>;
+  material: ShaderMaterial;
   monthBlendUniform: { value: number };
   nightLightsUniform: { value: number };
   sunDirectionUniform: { value: Vector3 };
@@ -32,64 +14,109 @@ export function createEarthMaterial(
   initialMonthBlend: number,
   initialNightLights: number,
 ): EarthMaterialBundle {
-  const monthBlendUniform = uniform(initialMonthBlend);
-  const nightLightsUniform = uniform(initialNightLights);
-  const sunDirectionUniform = uniform(new Vector3(1, 0, 0));
+  const monthBlendUniform = { value: initialMonthBlend };
+  const nightLightsUniform = { value: initialNightLights };
+  const sunDirectionUniform = { value: new Vector3(1, 0, 0) };
 
-  const daySample = texture(dayTexture, uv()).rgb;
-  const nextDaySample = nextDayTexture ? texture(nextDayTexture, uv()).rgb : null;
-  const nightSample = texture(nightTexture, uv()).rgb;
+  const material = new ShaderMaterial({
+    uniforms: {
+      dayTexture: { value: dayTexture },
+      nextDayTexture: { value: nextDayTexture ?? dayTexture },
+      nightTexture: { value: nightTexture },
+      monthBlend: monthBlendUniform,
+      nightLights: nightLightsUniform,
+      sunDirection: sunDirectionUniform,
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
 
-  const dayColor = nextDaySample
-    ? mix(daySample, nextDaySample, monthBlendUniform)
-    : daySample;
-  const sunAlignment = dot(normalWorld, sunDirectionUniform);
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = mvPosition.xyz;
+        vNormalView = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D dayTexture;
+      uniform sampler2D nextDayTexture;
+      uniform sampler2D nightTexture;
+      uniform float monthBlend;
+      uniform float nightLights;
+      uniform vec3 sunDirection;
 
-  // Fade city lights across the terminator so they stay on the night side.
-  const nightMask = smoothstep(-0.08, 0.02, sunAlignment).oneMinus();
+      varying vec2 vUv;
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
 
-  // Estimate water coverage from the day texture so oceans can keep a tight
-  // sun glint while land stays broad and matte.
-  const brightestChannel = max(dayColor.r, max(dayColor.g, dayColor.b));
-  const blueDominance = smoothstep(
-    float(0.015),
-    float(0.24),
-    dayColor.b.sub(max(dayColor.r, dayColor.g).mul(0.82)),
-  );
-  const aquaBias = smoothstep(float(0.04), float(0.32), dayColor.b.sub(dayColor.r))
-    .mul(smoothstep(float(-0.02), float(0.16), dayColor.g.sub(dayColor.r)));
-  const brightnessPenalty = smoothstep(
-    float(0.42),
-    float(0.86),
-    brightestChannel,
-  ).oneMinus();
-  const waterMask = clamp(
-    max(blueDominance, aquaBias).mul(brightnessPenalty).mul(1.1),
-    0,
-    1,
-  );
+      #include <tonemapping_pars_fragment>
+      #include <colorspace_pars_fragment>
 
-  const viewFresnel = pow(abs(dot(normalView, positionView.normalize())).oneMinus(), 4);
-  const dayHaze = viewFresnel.mul(smoothstep(-0.16, 0.5, sunAlignment)).mul(0.22);
-  const surfaceColor = mix(
-    dayColor,
-    dayColor.mul(vec3(0.84, 0.9, 1.05)).add(vec3(0.015, 0.03, 0.06)),
-    dayHaze,
-  );
+      float max3(vec3 value) {
+        return max(value.r, max(value.g, value.b));
+      }
 
-  const material = new MeshPhysicalNodeMaterial();
-  material.colorNode = surfaceColor;
-  material.emissiveNode = nightSample.mul(nightMask).mul(nightLightsUniform);
-  material.roughnessNode = mix(float(0.94), float(0.055), waterMask);
-  material.metalnessNode = float(0);
-  material.specularIntensityNode = mix(float(0.28), float(1.0), waterMask);
-  material.specularColorNode = mix(
-    vec3(1.0, 0.985, 0.97),
-    vec3(0.88, 0.97, 1.0),
-    waterMask,
-  );
-  material.clearcoatNode = waterMask.mul(0.32);
-  material.clearcoatRoughnessNode = mix(float(0.4), float(0.08), waterMask);
+      void main() {
+        vec3 normal = normalize(vNormalView);
+        vec3 viewDir = normalize(-vViewPosition);
+        vec3 sunDir = normalize((viewMatrix * vec4(sunDirection, 0.0)).xyz);
+
+        vec3 daySample = texture2D(dayTexture, vUv).rgb;
+        vec3 nextDaySample = texture2D(nextDayTexture, vUv).rgb;
+        vec3 nightSample = texture2D(nightTexture, vUv).rgb;
+
+        vec3 dayColor = mix(daySample, nextDaySample, monthBlend);
+        float sunAlignment = dot(normal, sunDir);
+        float daylight = smoothstep(-0.12, 0.08, sunAlignment);
+        float nightMask = 1.0 - smoothstep(-0.08, 0.02, sunAlignment);
+
+        float brightestChannel = max3(dayColor);
+        float blueDominance = smoothstep(
+          0.015,
+          0.24,
+          dayColor.b - max(dayColor.r, dayColor.g) * 0.82
+        );
+        float aquaBias = smoothstep(0.04, 0.32, dayColor.b - dayColor.r)
+          * smoothstep(-0.02, 0.16, dayColor.g - dayColor.r);
+        float brightnessPenalty = 1.0 - smoothstep(0.42, 0.86, brightestChannel);
+        float waterMask = clamp(max(blueDominance, aquaBias) * brightnessPenalty * 1.1, 0.0, 1.0);
+
+        float viewFresnel = pow(1.0 - abs(dot(normal, viewDir)), 4.0);
+        float dayHaze = viewFresnel * smoothstep(-0.16, 0.5, sunAlignment) * 0.22;
+        vec3 surfaceColor = mix(
+          dayColor,
+          dayColor * vec3(0.84, 0.9, 1.05) + vec3(0.015, 0.03, 0.06),
+          dayHaze
+        );
+
+        float diffuse = max(sunAlignment, 0.0);
+        vec3 diffuseColor = surfaceColor * (0.03 + diffuse * 0.97);
+        vec3 litSurface = mix(surfaceColor * 0.018, diffuseColor, daylight);
+
+        vec3 halfVector = normalize(viewDir + sunDir);
+        float specularPower = mix(24.0, 180.0, waterMask);
+        float specularStrength = mix(0.03, 0.75, waterMask);
+        float specular = pow(max(dot(normal, halfVector), 0.0), specularPower)
+          * specularStrength
+          * smoothstep(0.0, 0.18, diffuse);
+        vec3 specularColor = mix(
+          vec3(1.0, 0.985, 0.97),
+          vec3(0.88, 0.97, 1.0),
+          waterMask
+        );
+
+        vec3 cityLights = nightSample * nightMask * nightLights;
+        gl_FragColor = vec4(litSurface + specularColor * specular + cityLights, 1.0);
+
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+  });
+  material.toneMapped = true;
 
   return {
     material,

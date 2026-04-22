@@ -1,6 +1,9 @@
-import { BackSide, AdditiveBlending, Color } from 'three'
-import { MeshBasicNodeMaterial } from 'three/webgpu'
-import { normalView, positionView, dot, pow, abs, vec3, uniform } from 'three/tsl'
+import {
+  AdditiveBlending,
+  BackSide,
+  Color,
+  ShaderMaterial,
+} from "three";
 
 /**
  * TSL material for Saturn's atmospheric limb glow.
@@ -15,29 +18,58 @@ export function createAtmosphereMaterial(
   initialIntensity: number,
   initialPower: number,
 ): {
-  material: InstanceType<typeof MeshBasicNodeMaterial>
-  intensityUniform: { value: number }
-  powerUniform: { value: number }
+  material: ShaderMaterial;
+  intensityUniform: { value: number };
+  powerUniform: { value: number };
 } {
-  const intensityU = uniform(initialIntensity)
-  const powerU = uniform(initialPower)
+  const intensityUniform = { value: initialIntensity };
+  const powerUniform = { value: initialPower };
 
-  // Fresnel: strong at grazing angles (limb), zero when facing camera
-  const viewNormal = normalView
-  const viewDir = positionView.normalize()
-  const fresnel = pow(abs(dot(viewNormal, viewDir)).oneMinus(), powerU)
+  const material = new ShaderMaterial({
+    uniforms: {
+      glowColor: { value: color.clone() },
+      intensity: intensityUniform,
+      power: powerUniform,
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
 
-  const glowColor = vec3(color.r, color.g, color.b)
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = mvPosition.xyz;
+        vNormalView = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform vec3 glowColor;
+      uniform float intensity;
+      uniform float power;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const material = new (MeshBasicNodeMaterial as any)() as InstanceType<typeof MeshBasicNodeMaterial>
-  material.colorNode = glowColor.mul(fresnel).mul(intensityU)
-  material.opacityNode = fresnel.mul(intensityU)
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
 
-  material.transparent = true
-  material.side = BackSide
-  material.depthWrite = false
-  material.blending = AdditiveBlending
+      #include <tonemapping_pars_fragment>
+      #include <colorspace_pars_fragment>
 
-  return { material, intensityUniform: intensityU, powerUniform: powerU }
+      void main() {
+        vec3 normal = normalize(vNormalView);
+        vec3 viewDir = normalize(-vViewPosition);
+        float fresnel = pow(1.0 - abs(dot(normal, viewDir)), power);
+
+        gl_FragColor = vec4(glowColor * fresnel * intensity, fresnel * intensity);
+
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    side: BackSide,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
+  material.toneMapped = true;
+
+  return { material, intensityUniform, powerUniform };
 }

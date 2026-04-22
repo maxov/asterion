@@ -1,118 +1,117 @@
-import { AdditiveBlending, FrontSide, Vector3 } from "three";
-import { MeshBasicNodeMaterial } from "three/webgpu";
-import {
-  abs,
-  clamp,
-  dot,
-  float,
-  mix,
-  normalView,
-  normalWorld,
-  positionView,
-  pow,
-  sin,
-  smoothstep,
-  uniform,
-  uv,
-  vec3,
-} from "three/tsl";
+import { AdditiveBlending, FrontSide, ShaderMaterial, Vector3 } from "three";
 
 export type EarthAuroraMaterialBundle = {
-  material: InstanceType<typeof MeshBasicNodeMaterial>;
+  material: ShaderMaterial;
   intensityUniform: { value: number };
   phaseUniform: { value: number };
   sunDirectionUniform: { value: Vector3 };
 };
 
 export function createEarthAuroraMaterial(
-  initialIntensity = 0.92,
+  initialIntensity = 1.1,
   initialPhase = 0,
 ): EarthAuroraMaterialBundle {
-  const intensityUniform = uniform(initialIntensity);
-  const phaseUniform = uniform(initialPhase);
-  const sunDirectionUniform = uniform(new Vector3(1, 0, 0));
+  const intensityUniform = { value: initialIntensity };
+  const phaseUniform = { value: initialPhase };
+  const sunDirectionUniform = { value: new Vector3(1, 0, 0) };
 
-  const surfaceUv = uv();
-  const longitude = surfaceUv.x.mul(6.28318530718);
-  const latitudeAbs = abs(surfaceUv.y.mul(2).sub(1));
-  const phase = phaseUniform.mul(6.28318530718);
+  const material = new ShaderMaterial({
+    uniforms: {
+      intensity: intensityUniform,
+      phase: phaseUniform,
+      sunDirection: sunDirectionUniform,
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
 
-  const ovalLatitude = latitudeAbs.add(
-    sin(longitude.mul(2.0).add(phase.mul(0.7))).mul(0.035),
-  );
-  const lowerOval = smoothstep(float(0.48), float(0.62), ovalLatitude);
-  const upperOval = smoothstep(float(0.86), float(0.98), ovalLatitude);
-  const polarMask = lowerOval.mul(upperOval.oneMinus().mul(0.72).add(0.28));
+      void main() {
+        vUv = uv;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vViewPosition = mvPosition.xyz;
+        vNormalView = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * mvPosition;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float intensity;
+      uniform float phase;
+      uniform vec3 sunDirection;
 
-  const ribbonField = sin(
-    longitude.mul(18.0).add(surfaceUv.y.mul(16.0)).sub(phase.mul(1.7)),
-  )
-    .mul(0.48)
-    .add(
-      sin(longitude.mul(31.0).sub(surfaceUv.y.mul(25.0)).add(phase.mul(2.6))).mul(
-        0.31,
-      ),
-    )
-    .add(sin(longitude.mul(7.0).add(phase.mul(0.9))).mul(0.21));
-  const ribbonMask = smoothstep(
-    float(0.56),
-    float(0.84),
-    ribbonField.mul(0.5).add(0.5),
-  );
+      varying vec2 vUv;
+      varying vec3 vNormalView;
+      varying vec3 vViewPosition;
 
-  const curtainBreakup = sin(
-    surfaceUv.y.mul(44.0).add(longitude.mul(4.0)).add(phase.mul(3.2)),
-  )
-    .mul(0.5)
-    .add(0.5);
-  const curtainMask = ribbonMask.mul(
-    mix(float(0.48), float(1.0), smoothstep(float(0.18), float(0.92), curtainBreakup)),
-  );
+      #include <tonemapping_pars_fragment>
+      #include <colorspace_pars_fragment>
 
-  const sunAlignment = dot(normalWorld, sunDirectionUniform);
-  const nightMask = smoothstep(float(-0.04), float(0.28), sunAlignment).oneMinus();
-  const twilightBoost = smoothstep(float(-0.32), float(0.06), sunAlignment)
-    .sub(smoothstep(float(0.06), float(0.34), sunAlignment))
-    .mul(0.34);
-  const illuminationMask = clamp(nightMask.add(twilightBoost), 0, 1);
+      void main() {
+        vec3 normal = normalize(vNormalView);
+        vec3 viewDir = normalize(-vViewPosition);
+        vec3 sunDir = normalize((viewMatrix * vec4(sunDirection, 0.0)).xyz);
 
-  const fresnel = pow(abs(dot(normalView, positionView.normalize())).oneMinus(), 2.0);
-  const viewMask = mix(float(0.28), float(1.0), fresnel);
-  const pulseMask = mix(
-    float(0.72),
-    float(1.0),
-    sin(longitude.mul(5.0).add(phase.mul(4.0))).mul(0.5).add(0.5),
-  );
+        float longitude = vUv.x * 6.28318530718;
+        float latitudeAbs = abs(vUv.y * 2.0 - 1.0);
+        float phaseAngle = phase * 6.28318530718;
 
-  const auroraMask = clamp(
-    polarMask.mul(curtainMask).mul(illuminationMask).mul(viewMask).mul(pulseMask),
-    0,
-    1,
-  );
+        float ovalLatitude = latitudeAbs + sin(longitude * 2.0 + phaseAngle * 0.7) * 0.035;
+        float lowerOval = smoothstep(0.48, 0.62, ovalLatitude);
+        float upperOval = smoothstep(0.86, 0.98, ovalLatitude);
+        float polarMask = lowerOval * ((1.0 - upperOval) * 0.72 + 0.28);
 
-  const cyanMix = sin(
-    longitude.mul(9.0).sub(phase.mul(1.2)).add(surfaceUv.y.mul(20.0)),
-  )
-    .mul(0.5)
-    .add(0.5);
-  const baseColor = mix(
-    vec3(0.08, 0.95, 0.42),
-    vec3(0.14, 0.72, 1.0),
-    cyanMix.mul(0.55),
-  );
-  const violetAccent = smoothstep(float(0.7), float(0.98), ribbonMask.mul(pulseMask)).mul(
-    0.22,
-  );
-  const auroraColor = mix(baseColor, vec3(0.92, 0.26, 0.86), violetAccent);
+        float ribbonField =
+          sin(longitude * 18.0 + vUv.y * 16.0 - phaseAngle * 1.7) * 0.48 +
+          sin(longitude * 31.0 - vUv.y * 25.0 + phaseAngle * 2.6) * 0.31 +
+          sin(longitude * 7.0 + phaseAngle * 0.9) * 0.21;
+        float ribbonMask = smoothstep(0.56, 0.84, ribbonField * 0.5 + 0.5);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const material = new (MeshBasicNodeMaterial as any)() as InstanceType<typeof MeshBasicNodeMaterial>;
-  material.colorNode = auroraColor.mul(auroraMask).mul(intensityUniform).mul(1.45);
-  material.opacityNode = auroraMask.mul(intensityUniform).mul(0.82);
-  material.transparent = true;
-  material.side = FrontSide;
-  material.depthWrite = false;
-  material.blending = AdditiveBlending;
+        float curtainBreakup = sin(vUv.y * 44.0 + longitude * 4.0 + phaseAngle * 3.2) * 0.5 + 0.5;
+        float curtainMask = ribbonMask * mix(0.48, 1.0, smoothstep(0.18, 0.92, curtainBreakup));
+
+        float sunAlignment = dot(normal, sunDir);
+        float nightMask = 1.0 - smoothstep(-0.04, 0.28, sunAlignment);
+        float twilightBoost = (
+          smoothstep(-0.32, 0.06, sunAlignment) -
+          smoothstep(0.06, 0.34, sunAlignment)
+        ) * 0.48;
+        float illuminationMask = clamp(nightMask + twilightBoost, 0.0, 1.0);
+
+        float fresnel = pow(1.0 - abs(dot(normal, viewDir)), 2.0);
+        float viewMask = mix(0.4, 1.0, fresnel);
+        float pulseMask = mix(
+          0.72,
+          1.0,
+          sin(longitude * 5.0 + phaseAngle * 4.0) * 0.5 + 0.5
+        );
+
+        float auroraMask = clamp(
+          polarMask * curtainMask * illuminationMask * viewMask * pulseMask,
+          0.0,
+          1.0
+        );
+
+        float cyanMix = sin(longitude * 9.0 - phaseAngle * 1.2 + vUv.y * 20.0) * 0.5 + 0.5;
+        vec3 baseColor = mix(
+          vec3(0.08, 0.95, 0.42),
+          vec3(0.14, 0.72, 1.0),
+          cyanMix * 0.55
+        );
+        float violetAccent = smoothstep(0.7, 0.98, ribbonMask * pulseMask) * 0.22;
+        vec3 auroraColor = mix(baseColor, vec3(0.92, 0.26, 0.86), violetAccent);
+
+        gl_FragColor = vec4(auroraColor * auroraMask * intensity * 1.65, auroraMask * intensity * 0.95);
+
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }
+    `,
+    transparent: true,
+    side: FrontSide,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
+  material.toneMapped = true;
 
   return {
     material,
