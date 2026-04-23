@@ -1,0 +1,32 @@
+{
+  "source_id": "haumea_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/2k_haumea_fictional.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "6fc091868a7c5ea1b8a7d4d76ce946695e98358f4c4277a2c88f76c36fc95ca1",
+  "sha256_output": "16bba90332625831321ca13dfeb0900b39f7444c81cdc2049aefeda6dbe842e6",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:52.103724+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/2k_haumea_fictional.jpg",
+      "path": "data/raw/haumea_sss.jpg",
+      "sha256": "6fc091868a7c5ea1b8a7d4d76ce946695e98358f4c4277a2c88f76c36fc95ca1"
+    }
+  ],
+  "input_dimensions": [
+    2048,
+    1024
+  ],
+  "output_dimensions": [
+    2048,
+    1024
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

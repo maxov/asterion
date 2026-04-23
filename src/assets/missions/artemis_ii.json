@@ -57,14 +57,17 @@
     "https://www.nasa.gov/wp-content/uploads/2026/01/artemis-ii-press-kit.pdf",
     "https://ssd-api.jpl.nasa.gov/doc/horizons.html"
   ],
-  "streakWindowSeconds": 3600,
+  "streakWindowSeconds": 14400,
   "style": {
-    "head_color": "#fff9e3",
-    "head_radius_km": 320,
+    "head_color": "#4c6fff",
+    "head_radius_km": 20,
+    "head_size_px": 24,
     "line_color": "#888888",
-    "line_opacity": 0.4,
-    "streak_color": "#4da6ff",
-    "streak_opacity": 0.95
+    "line_opacity": 0.2,
+    "line_width_px": 5,
+    "streak_color": "#4c6fff",
+    "streak_opacity": 0.95,
+    "streak_width_px": 5
   },
   "systemId": "earthSystem",
   "trajectory": {

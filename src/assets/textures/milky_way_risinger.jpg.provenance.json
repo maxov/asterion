@@ -4,11 +4,21 @@
   "source_page": "http://skysurvey.org/",
   "license": "CC BY-NC 3.0",
   "attribution": "Nick Risinger / Photopic Sky Survey",
+  "asset_type": "textures",
   "sha256_raw": "9f2c8adb58ae2a9995b6ec4e603c2c57072c19280926f986da6bd66e91216d5d",
   "sha256_output": "9440824bbbf064310760c91d9565f7254ade878243b868feb4be554c13623353",
   "processor": "starfield",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T12:25:48.622323+00:00",
+  "processed_at": "2026-04-23T03:17:46.205554+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://apod.nasa.gov/apod/image/1105/3000_CC_BY-NC.jpg",
+      "path": "data/raw/milky_way_risinger.jpg",
+      "sha256": "9f2c8adb58ae2a9995b6ec4e603c2c57072c19280926f986da6bd66e91216d5d"
+    }
+  ],
   "input_dimensions": [
     3000,
     1500

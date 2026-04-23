@@ -4,11 +4,21 @@
   "source_page": "https://svs.gsfc.nasa.gov/4720/",
   "license": "Public Domain (NASA imagery)",
   "attribution": "NASA Scientific Visualization Studio",
+  "asset_type": "textures",
   "sha256_raw": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170",
   "sha256_output": "c21af0b9cb6d2383f0f2979f6cab688c32df598da9081eef8705cbe858301dc3",
   "processor": "saturn_body",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T12:26:52.181535+00:00",
+  "processed_at": "2026-04-23T03:17:47.124060+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://svs.gsfc.nasa.gov/vis/a000000/a004700/a004720/lroc_color_2k.jpg",
+      "path": "data/raw/moon_color_lroc_2k.jpg",
+      "sha256": "f7130a1822681fa7512d7dcfd40db8c10b9ba4f06777910348698260ed7a2170"
+    }
+  ],
   "input_dimensions": [
     2048,
     1024

@@ -4,11 +4,21 @@
   "source_page": "https://www.solarsystemscope.com/textures/",
   "license": "CC-BY 4.0",
   "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
   "sha256_raw": "1fd005ddd6d53364cc5106e0121b83fd3bca236b1503f6b51f5501d9d51eafaf",
   "sha256_output": "c1394400ddec7c5fa3bd5347e7e6cd2712d4029cfb889297b78b08c1ef9edd3a",
   "processor": "starfield",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T12:25:48.251412+00:00",
+  "processed_at": "2026-04-23T03:17:45.802566+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/8k_stars_milky_way.jpg",
+      "path": "data/raw/milky_way_sss.jpg",
+      "sha256": "1fd005ddd6d53364cc5106e0121b83fd3bca236b1503f6b51f5501d9d51eafaf"
+    }
+  ],
   "input_dimensions": [
     8192,
     4096

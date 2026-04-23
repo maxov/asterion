@@ -1,0 +1,32 @@
+{
+  "source_id": "phobos_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Phobos_ME_SRC_Mosaic_Global_16ppd.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/phobos_mars_express_src_global_mosaic_12m",
+  "license": "Public Domain; please cite authors",
+  "attribution": "Mars Express HRSC Instrument Team / Europlanet Research Infrastructure / USGS Astrogeology Science Center",
+  "asset_type": "textures",
+  "sha256_raw": "4106b826ce0035c3d8e58c773deec5434cb2a642ddc6569131d9476a03074ff5",
+  "sha256_output": "fd02d23876f1a21f03d325b0defbc9117cd0de6cce6aac90bf8129f5a09c1514",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:52.317006+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Phobos_ME_SRC_Mosaic_Global_16ppd.tif",
+      "path": "data/raw/phobos_usgs.tif",
+      "sha256": "4106b826ce0035c3d8e58c773deec5434cb2a642ddc6569131d9476a03074ff5"
+    }
+  ],
+  "input_dimensions": [
+    5760,
+    2880
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

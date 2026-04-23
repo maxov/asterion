@@ -1,0 +1,32 @@
+{
+  "source_id": "mercury_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/8k_mercury.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "5c8bd885ae3571c6ba2cd34b3446b9c6d767e314bf0ee8c1d5c147cadd388fc3",
+  "sha256_output": "2b3be8de84256dfdf5cdc653a9f18f4041f338ff9048748a10ef249ac78a5933",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:47.815524+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/8k_mercury.jpg",
+      "path": "data/raw/mercury_sss.jpg",
+      "sha256": "5c8bd885ae3571c6ba2cd34b3446b9c6d767e314bf0ee8c1d5c147cadd388fc3"
+    }
+  ],
+  "input_dimensions": [
+    8192,
+    4096
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

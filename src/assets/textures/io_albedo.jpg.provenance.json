@@ -1,0 +1,32 @@
+{
+  "source_id": "io_color_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/io_galileo_ssi_global_color_merge_mosaic_1km",
+  "license": "Public Domain",
+  "attribution": "USGS Astrogeology Science Center / Planetary Data System",
+  "asset_type": "textures",
+  "sha256_raw": "524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd",
+  "sha256_output": "45ad8d0044ffee3bdac2f0da9d4e7c107d1b53a0c1f70452b5b18b2bf7e0ae48",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:52.967856+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif",
+      "path": "data/raw/io_color_usgs.tif",
+      "sha256": "524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd"
+    }
+  ],
+  "input_dimensions": [
+    11445,
+    5723
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

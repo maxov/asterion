@@ -1,0 +1,32 @@
+{
+  "source_id": "makemake_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/2k_makemake_fictional.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "796b654648df0b241ad2e03ce60677bd7fd854c98fd8ff8b5c5f9750c01be082",
+  "sha256_output": "47ec921953afcd714568aef517d1dcac40447b0912c5274a5ab29c66b490bbc7",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:52.127950+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/2k_makemake_fictional.jpg",
+      "path": "data/raw/makemake_sss.jpg",
+      "sha256": "796b654648df0b241ad2e03ce60677bd7fd854c98fd8ff8b5c5f9750c01be082"
+    }
+  ],
+  "input_dimensions": [
+    2048,
+    1024
+  ],
+  "output_dimensions": [
+    2048,
+    1024
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

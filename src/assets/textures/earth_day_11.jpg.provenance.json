@@ -4,11 +4,21 @@
   "source_page": "https://science.nasa.gov/earth/earth-observatory/blue-marble-next-generation/base-map/",
   "license": "Public Domain (NASA imagery)",
   "attribution": "NASA Earth Observatory",
+  "asset_type": "textures",
   "sha256_raw": "d63de0bb4274a7d9df08d2f69eeffc849d0f7aca157c4401f9bd2e41af63b178",
   "sha256_output": "1d7ea3ce01c0d912caab615950feaa73c6027a9270aa6bbf8e2c73586eeefb9d",
   "processor": "saturn_body",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T12:26:51.803552+00:00",
+  "processed_at": "2026-04-23T03:17:46.827458+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://assets.science.nasa.gov/content/dam/science/esd/eo/images/bmng/bmng-base/november/world.200411.3x5400x2700.jpg",
+      "path": "data/raw/earth_day_11.jpg",
+      "sha256": "d63de0bb4274a7d9df08d2f69eeffc849d0f7aca157c4401f9bd2e41af63b178"
+    }
+  ],
   "input_dimensions": [
     5400,
     2700

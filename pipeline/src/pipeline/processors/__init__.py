@@ -16,7 +16,7 @@ from pipeline.processors.jpl_horizons_mission import jpl_horizons_mission
 from pipeline.processors.mission_profile import mission_profile
 from pipeline.processors.moon_height import moon_height
 from pipeline.processors.passthrough import passthrough
-from pipeline.processors.saturn_body import saturn_body
+from pipeline.processors.saturn_body import body_texture, saturn_body
 from pipeline.processors.saturn_rings import saturn_rings
 from pipeline.processors.saturn_rings_bjj import saturn_rings_bjj
 from pipeline.processors.starfield import starfield
@@ -26,6 +26,7 @@ from pipeline.sources import Source
 ProcessorFn = Callable[[Path, Path, Source], tuple[Path, dict[str, Any]]]
 
 PROCESSORS: dict[str, ProcessorFn] = {
+    "body_texture": body_texture,
     "earth_clouds": earth_clouds,
     "jpl_horizons_mission": jpl_horizons_mission,
     "mission_profile": mission_profile,

@@ -1,0 +1,32 @@
+{
+  "source_id": "triton_color_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m",
+  "license": "Public Domain; please cite authors",
+  "attribution": "NASA / Jet Propulsion Laboratory / Paul Schenk / USGS Astrogeology Science Center",
+  "asset_type": "textures",
+  "sha256_raw": "f20ed332e85df469725629b81d3a73ad026897fe561ec59d6245d249a09507db",
+  "sha256_output": "4993616f3df7d8c1d6699da967654c1fd362913858a5f455b29fe4ad6293a47d",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:56.533274+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif",
+      "path": "data/raw/triton_color_usgs.tif",
+      "sha256": "f20ed332e85df469725629b81d3a73ad026897fe561ec59d6245d249a09507db"
+    }
+  ],
+  "input_dimensions": [
+    14138,
+    7069
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

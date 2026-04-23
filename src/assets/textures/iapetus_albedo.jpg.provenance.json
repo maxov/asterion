@@ -1,0 +1,32 @@
+{
+  "source_id": "iapetus_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Iapetus_Cassini_Voyager_mosaic_global_783m.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m",
+  "license": "Public Domain; please cite authors",
+  "attribution": "Space Science Institute / Cassini Team / Jet Propulsion Laboratory / USGS Astrogeology Science Center",
+  "asset_type": "textures",
+  "sha256_raw": "eb8acdbed3af495102b6ec6d3efce1f03dc6bc39bb43323c23231ce590494d6e",
+  "sha256_output": "7c6873ea791e1ad2d769f4a9a143aea2b8f53996610c2da0e8f694c7bd003e08",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:56.699591+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Iapetus_Cassini_Voyager_mosaic_global_783m.tif",
+      "path": "data/raw/iapetus_usgs.tif",
+      "sha256": "eb8acdbed3af495102b6ec6d3efce1f03dc6bc39bb43323c23231ce590494d6e"
+    }
+  ],
+  "input_dimensions": [
+    5760,
+    2880
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

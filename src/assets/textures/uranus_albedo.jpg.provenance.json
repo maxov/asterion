@@ -1,0 +1,32 @@
+{
+  "source_id": "uranus_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d",
+  "sha256_output": "872ee30e5903dd4950341b04d662a735368a04ce1076b4cc5fd64794fed40c84",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:50.058606+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg",
+      "path": "data/raw/uranus_sss.jpg",
+      "sha256": "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d"
+    }
+  ],
+  "input_dimensions": [
+    2048,
+    1024
+  ],
+  "output_dimensions": [
+    2048,
+    1024
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

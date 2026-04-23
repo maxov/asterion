@@ -58,7 +58,9 @@ def test_mission_profile_writes_normalized_asset(tmp_path: Path) -> None:
     assert data["missionId"] == "artemis2"
     assert data["trajectoryModel"] == "earth-moon-free-return-v1"
     assert data["events"][1]["id"] == "splashdown"
-    assert data["style"]["line_color"] == "#7ecbff"
+    assert data["style"]["line_color"] == "#888888"
+    assert data["style"]["streak_color"] == "#4c6fff"
+    assert data["style"]["head_size_px"] == 16
     assert data["visual"]["model_asset_path"] == "/models/orion_spacecraft.glb"
     assert data["visual"]["show_head"] is False
     assert extra["mission_id"] == "artemis2"

@@ -1,0 +1,32 @@
+{
+  "source_id": "titan_iss_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/titan_cassini_iss_global_mosaic_4005m",
+  "license": "No access constraints; please cite authors",
+  "attribution": "Cassini ISS Team / NASA-JPL-Caltech / SSI / USGS Astrogeology Science Center",
+  "asset_type": "textures",
+  "sha256_raw": "ca0fe5f6f9bdba1b6d03245969a42336a010ddc17d636e5e06fffa939d10ca83",
+  "sha256_output": "2f0c2039e59b09ca0ce498a6bd91c9dae5111a54ab438e82e47e2f76224a3531",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:55.631123+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif",
+      "path": "data/raw/titan_iss_usgs.tif",
+      "sha256": "ca0fe5f6f9bdba1b6d03245969a42336a010ddc17d636e5e06fffa939d10ca83"
+    }
+  ],
+  "input_dimensions": [
+    4040,
+    2020
+  ],
+  "output_dimensions": [
+    4040,
+    2020
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

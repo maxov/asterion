@@ -1,0 +1,32 @@
+{
+  "source_id": "eris_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/2k_eris_fictional.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "0f19f080aa7b4b047a1c6c5e169d62c38a5763e6a3d7724180cb471000fb04fb",
+  "sha256_output": "ee74b84a8df91d634862d74f5226a0a39f20e12fc382b7ec593a38e25c10f920",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:52.148304+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/2k_eris_fictional.jpg",
+      "path": "data/raw/eris_sss.jpg",
+      "sha256": "0f19f080aa7b4b047a1c6c5e169d62c38a5763e6a3d7724180cb471000fb04fb"
+    }
+  ],
+  "input_dimensions": [
+    2048,
+    1024
+  ],
+  "output_dimensions": [
+    2048,
+    1024
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

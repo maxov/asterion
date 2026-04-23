@@ -4,11 +4,21 @@
   "source_page": "http://bjj.mmedia.is/planetary_maps.html",
   "license": "Free use with attribution; redistribution prohibited \u2014 fetch for local use only",
   "attribution": "Bj\u00f6rn J\u00f3nsson",
+  "asset_type": "textures",
   "sha256_raw": "2d699c01f06dfe6419d9e7e6b1fead63c45d499294c2909356f31dda0ba82db3",
   "sha256_output": "e30ea2b6f2b50311362cdc6630eedf31334683e6206ce676ad284f6bf6e3ca7f",
   "processor": "saturn_body",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T12:25:48.087065+00:00",
+  "processed_at": "2026-04-23T03:17:45.585310+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://bjj.mmedia.is/data/saturn/saturn.jpg",
+      "path": "data/raw/saturn_body_bjj.jpg",
+      "sha256": "2d699c01f06dfe6419d9e7e6b1fead63c45d499294c2909356f31dda0ba82db3"
+    }
+  ],
   "input_dimensions": [
     2880,
     1440

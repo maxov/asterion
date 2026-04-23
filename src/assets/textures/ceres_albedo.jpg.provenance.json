@@ -1,0 +1,32 @@
+{
+  "source_id": "ceres_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/2k_ceres_fictional.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "ee59b2c7aa399dfdc810078c723373670133fe8505e439601dff4ce6f3cc5ad8",
+  "sha256_output": "234954f409d15f4ab6d0e48ba240a26876d112c4c70065be7a9c01b7993900b3",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:49.992121+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/2k_ceres_fictional.jpg",
+      "path": "data/raw/ceres_sss.jpg",
+      "sha256": "ee59b2c7aa399dfdc810078c723373670133fe8505e439601dff4ce6f3cc5ad8"
+    }
+  ],
+  "input_dimensions": [
+    2048,
+    1024
+  ],
+  "output_dimensions": [
+    2048,
+    1024
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

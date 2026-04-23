@@ -4,11 +4,21 @@
   "source_page": "https://www.solarsystemscope.com/textures/",
   "license": "CC-BY 4.0",
   "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
   "sha256_raw": "0d39a4a490c87c3edabe00a3881a29bb3418364178c79c534fe0986e97e09853",
   "sha256_output": "25a571a4c8a6bd4fd94a9c7601bef23844b5ccb8d82d07a5cf453cea6d5b5231",
   "processor": "saturn_body",
   "pipeline_version": "0.1.0",
-  "processed_at": "2026-04-21T12:25:48.128268+00:00",
+  "processed_at": "2026-04-23T03:17:45.637010+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/8k_saturn.jpg",
+      "path": "data/raw/saturn_body_sss.jpg",
+      "sha256": "0d39a4a490c87c3edabe00a3881a29bb3418364178c79c534fe0986e97e09853"
+    }
+  ],
   "input_dimensions": [
     4096,
     2048

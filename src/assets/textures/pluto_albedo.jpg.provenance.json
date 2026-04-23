@@ -1,0 +1,32 @@
+{
+  "source_id": "pluto_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/pluto_new_horizons_lorri_mvic_global_mosaic_300m",
+  "license": "No access constraints; please cite authors",
+  "attribution": "New Horizons Team / USGS Astrogeology Science Center",
+  "asset_type": "textures",
+  "sha256_raw": "592b7fb0f88cafa0bedf9f33bb71e983952a250ee8577edf2abfe814b473356b",
+  "sha256_output": "f91f8bc5ffc69fd3a4b52ca6664cca61e920fa3aea35fa2ef4ce4bf0e4967295",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:52.085524+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif",
+      "path": "data/raw/pluto_usgs.tif",
+      "sha256": "592b7fb0f88cafa0bedf9f33bb71e983952a250ee8577edf2abfe814b473356b"
+    }
+  ],
+  "input_dimensions": [
+    24888,
+    12444
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

@@ -1,0 +1,32 @@
+{
+  "source_id": "jupiter_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/8k_jupiter.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "0bd844bf20822c4e3e80882b077859833c0dac44c7e4e1e0cd63d1b1b6d43085",
+  "sha256_output": "bfaa264f3a1a479e72e848f17bd33ed6b590ab2a75b488d0ffd84606ed24b079",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:50.048714+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/8k_jupiter.jpg",
+      "path": "data/raw/jupiter_sss.jpg",
+      "sha256": "0bd844bf20822c4e3e80882b077859833c0dac44c7e4e1e0cd63d1b1b6d43085"
+    }
+  ],
+  "input_dimensions": [
+    4096,
+    2048
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

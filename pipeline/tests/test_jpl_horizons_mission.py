@@ -71,6 +71,17 @@ def test_jpl_horizons_mission_writes_sampled_vector_asset(tmp_path: Path) -> Non
             "mission_name": "Artemis II",
             "launch_utc": "2026-04-02T01:54:00Z",
             "duration_seconds": 600,
+            "style": {
+                "head_color": "#4c6fff",
+                "head_radius_km": 20,
+                "head_size_px": 24,
+                "line_color": "#888888",
+                "line_opacity": 0.2,
+                "line_width_px": 5,
+                "streak_color": "#4c6fff",
+                "streak_opacity": 0.95,
+                "streak_width_px": 5,
+            },
             "visual": {
                 "model_asset_path": "/models/orion_spacecraft.glb",
                 "model_rotation_deg": [0, 180, 0],
@@ -101,6 +112,11 @@ def test_jpl_horizons_mission_writes_sampled_vector_asset(tmp_path: Path) -> Non
     assert data["trajectory"]["samples"][0]["t_plus_seconds"] == 300
     assert data["trajectory"]["samples"][1]["velocity_km_s"] == [1.5, 2.5, 3.5]
     assert data["referenceBodies"]["moon"]["samples"][0]["position_km"] == [10.0, 20.0, 30.0]
+    assert data["style"]["line_color"] == "#888888"
+    assert data["style"]["streak_color"] == "#4c6fff"
+    assert data["style"]["line_width_px"] == 5
+    assert data["style"]["streak_width_px"] == 5
+    assert data["style"]["head_size_px"] == 24
     assert data["visual"]["model_rotation_deg"] == [0.0, 180.0, 0.0]
     assert extra["sample_count"] == 2
     assert extra["trajectory_center_body"].startswith("Earth (399)")

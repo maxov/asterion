@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pipeline.hashing import sha256_file
 from pipeline.paths import asset_dir, intermediate_dir
+from pipeline.commands.install import copy_asset_to_public
 from pipeline.processors import get_processor
 from pipeline.provenance import write_provenance
 from pipeline.raw_inputs import collect_raw_inputs, serialize_raw_input
@@ -50,6 +51,7 @@ def _process_one(source: Source) -> None:
     )
     print(f"  {source.id}: installed {final_path.name}")
     print(f"  {source.id}: provenance written to {prov_path.name}")
+    copy_asset_to_public(final_path, source.asset_type)
 
     # Install extra outputs
     if extra_output_paths:
@@ -75,6 +77,7 @@ def _process_one(source: Source) -> None:
             )
             print(f"  {source.id}: installed {final.name}")
             print(f"  {source.id}: provenance written to {prov.name}")
+            copy_asset_to_public(final, source.asset_type)
 
 
 def run_process(source_id: str | None) -> None:

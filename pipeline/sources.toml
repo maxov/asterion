@@ -50,8 +50,11 @@ source_page = "https://bjj.mmedia.is/data/s_rings/index.html"
 processor = "saturn_rings_bjj"
 inner_radius_km = 74510
 outer_radius_km = 140390
-output_mode = "combined"
-output = "saturn_rings.png"
+output_mode = "multichannel"
+output = "saturn_rings_scattering.png"
+extra_outputs = [
+    "saturn_rings_color.png",
+]
 
 [[source.extra_files]]
 name = "backscattered"
@@ -310,6 +313,246 @@ max_width = 4096
 output = "moon_height.png"
 
 [[source]]
+id = "mercury_sss"
+description = "Mercury global texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/8k_mercury.jpg"
+sha256 = "5c8bd885ae3571c6ba2cd34b3446b9c6d767e314bf0ee8c1d5c147cadd388fc3"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 4096
+output = "mercury_albedo.jpg"
+
+[[source]]
+id = "venus_surface_sss"
+description = "Venus surface texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/8k_venus_surface.jpg"
+sha256 = "9bc21a50577ed8ac734cda91058724c7a741c19427aa276224ce349351432c5b"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 4096
+output = "venus_surface.jpg"
+
+[[source]]
+id = "mars_sss"
+description = "Mars global texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/8k_mars.jpg"
+sha256 = "4cc52149924abc6ae507d63032f994e1d42a55cb82c09e002d1a567ff66c23ee"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 4096
+output = "mars_albedo.jpg"
+
+[[source]]
+id = "vesta_usgs"
+description = "Vesta Dawn HAMO global color shaded relief 93m"
+url = "https://planetarymaps.usgs.gov/mosaic/Vesta_Dawn_HAMO_ClrShade_DLR_Global_48ppd.tif"
+sha256 = "6d331cde543aa8e12b0ef70ea3ac18fec2daeed8aa5c95488dc6964a461bc028"
+license = "No access constraints; please cite authors"
+attribution = "Dawn Team / USGS Astrogeology Science Center"
+source_page = "https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_color_shaded_relief_93m"
+processor = "body_texture"
+max_width = 4096
+output = "vesta_surface.jpg"
+
+[[source]]
+id = "ceres_sss"
+description = "Ceres global texture with fictional fill (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/2k_ceres_fictional.jpg"
+sha256 = "ee59b2c7aa399dfdc810078c723373670133fe8505e439601dff4ce6f3cc5ad8"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 2048
+output = "ceres_albedo.jpg"
+
+[[source]]
+id = "jupiter_sss"
+description = "Jupiter global texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/8k_jupiter.jpg"
+sha256 = "0bd844bf20822c4e3e80882b077859833c0dac44c7e4e1e0cd63d1b1b6d43085"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 4096
+output = "jupiter_albedo.jpg"
+
+[[source]]
+id = "uranus_sss"
+description = "Uranus global texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/2k_uranus.jpg"
+sha256 = "d15239d46f82d3ea13d2b260b5b29b2a382f42f2916dae0694d0387b1204a09d"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 2048
+output = "uranus_albedo.jpg"
+
+[[source]]
+id = "neptune_sss"
+description = "Neptune global texture (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/2k_neptune.jpg"
+sha256 = "cb42ea82709741d28b0af44d8b283cbc6dbd0c521a7f0e1e1e010ade00977df6"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 2048
+output = "neptune_albedo.jpg"
+
+[[source]]
+id = "pluto_usgs"
+description = "Pluto New Horizons LORRI/MVIC global mosaic 300m"
+url = "https://planetarymaps.usgs.gov/mosaic/Pluto_NewHorizons_Global_Mosaic_300m_Jul2017_8bit.tif"
+sha256 = "592b7fb0f88cafa0bedf9f33bb71e983952a250ee8577edf2abfe814b473356b"
+license = "No access constraints; please cite authors"
+attribution = "New Horizons Team / USGS Astrogeology Science Center"
+source_page = "https://astrogeology.usgs.gov/search/map/pluto_new_horizons_lorri_mvic_global_mosaic_300m"
+processor = "body_texture"
+max_width = 4096
+output = "pluto_albedo.jpg"
+
+[[source]]
+id = "haumea_sss"
+description = "Haumea global texture with fictional fill (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/2k_haumea_fictional.jpg"
+sha256 = "6fc091868a7c5ea1b8a7d4d76ce946695e98358f4c4277a2c88f76c36fc95ca1"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 2048
+output = "haumea_albedo.jpg"
+
+[[source]]
+id = "makemake_sss"
+description = "Makemake global texture with fictional fill (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/2k_makemake_fictional.jpg"
+sha256 = "796b654648df0b241ad2e03ce60677bd7fd854c98fd8ff8b5c5f9750c01be082"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 2048
+output = "makemake_albedo.jpg"
+
+[[source]]
+id = "eris_sss"
+description = "Eris global texture with fictional fill (Solar System Scope, CC-BY 4.0)"
+url = "https://www.solarsystemscope.com/textures/download/2k_eris_fictional.jpg"
+sha256 = "0f19f080aa7b4b047a1c6c5e169d62c38a5763e6a3d7724180cb471000fb04fb"
+license = "CC-BY 4.0"
+attribution = "INOVE / Solar System Scope"
+source_page = "https://www.solarsystemscope.com/textures/"
+processor = "body_texture"
+max_width = 2048
+output = "eris_albedo.jpg"
+
+[[source]]
+id = "phobos_usgs"
+description = "Phobos Mars Express SRC global mosaic 12m"
+url = "https://planetarymaps.usgs.gov/mosaic/Phobos_ME_SRC_Mosaic_Global_16ppd.tif"
+sha256 = "4106b826ce0035c3d8e58c773deec5434cb2a642ddc6569131d9476a03074ff5"
+license = "Public Domain; please cite authors"
+attribution = "Mars Express HRSC Instrument Team / Europlanet Research Infrastructure / USGS Astrogeology Science Center"
+source_page = "https://astrogeology.usgs.gov/search/map/phobos_mars_express_src_global_mosaic_12m"
+processor = "body_texture"
+max_width = 4096
+output = "phobos_albedo.jpg"
+
+[[source]]
+id = "io_color_usgs"
+description = "Io Galileo SSI global color merge mosaic 1km"
+url = "https://planetarymaps.usgs.gov/mosaic/Io_Galileo_SSI_Global_Mosaic_ClrMerge_1km.tif"
+sha256 = "524dcabd247c889a4e7c2a1bfd9e5fcc545c6a039b2c765da9b741befdfd00bd"
+license = "Public Domain"
+attribution = "USGS Astrogeology Science Center / Planetary Data System"
+source_page = "https://astrogeology.usgs.gov/search/map/io_galileo_ssi_global_color_merge_mosaic_1km"
+processor = "body_texture"
+max_width = 4096
+output = "io_albedo.jpg"
+
+[[source]]
+id = "europa_usgs"
+description = "Europa Voyager/Galileo SSI global mosaic 500m"
+url = "https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif"
+sha256 = "a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624"
+license = "None"
+attribution = "USGS Astrogeology Science Center / Galileo SSI / Voyager ISS"
+source_page = "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m"
+processor = "body_texture"
+max_width = 4096
+output = "europa_albedo.jpg"
+
+[[source]]
+id = "ganymede_color_usgs"
+description = "Ganymede Voyager/Galileo SSI color global mosaic 1.4km"
+url = "https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_Global_ClrMosaic_1435m.tif"
+sha256 = "da47087e75bc530456d8206d5100ad3c687706353700b0cb44a8400957005a33"
+license = "Public Domain"
+attribution = "USGS Astrogeology Science Center / Galileo SSI / Voyager ISS"
+source_page = "https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_color_global_mosaic_1_4km"
+processor = "body_texture"
+max_width = 4096
+output = "ganymede_albedo.jpg"
+
+[[source]]
+id = "callisto_usgs"
+description = "Callisto Galileo/Voyager global mosaic 1km"
+url = "https://planetarymaps.usgs.gov/mosaic/Callisto_Voyager_GalileoSSI_global_mosaic_1km.tif"
+sha256 = "e1f0bd2e0e05de605d067d6b5f5ededddaf31ca6c064562a1ca770f15a7dbaa3"
+license = "Public Domain"
+attribution = "USGS Astrogeology Science Center / Galileo SSI / Voyager ISS"
+source_page = "https://astrogeology.usgs.gov/search/map/callisto_galileo_voyager_global_mosaic_1km"
+processor = "body_texture"
+max_width = 4096
+output = "callisto_albedo.jpg"
+
+[[source]]
+id = "titan_iss_usgs"
+description = "Titan Cassini ISS global mosaic 4005m (938 nm methane-window basemap)"
+url = "https://planetarymaps.usgs.gov/mosaic/Titan_ISS_P19658_Mosaic_Global_4km.tif"
+sha256 = "ca0fe5f6f9bdba1b6d03245969a42336a010ddc17d636e5e06fffa939d10ca83"
+license = "No access constraints; please cite authors"
+attribution = "Cassini ISS Team / NASA-JPL-Caltech / SSI / USGS Astrogeology Science Center"
+source_page = "https://astrogeology.usgs.gov/search/map/titan_cassini_iss_global_mosaic_4005m"
+processor = "body_texture"
+max_width = 4040
+output = "titan_surface.jpg"
+
+[[source]]
+id = "triton_color_usgs"
+description = "Triton Voyager 2 global color mosaic 600m"
+url = "https://planetarymaps.usgs.gov/mosaic/Triton_Voyager2_ClrMosaic_GlobalFill_600m.tif"
+sha256 = "f20ed332e85df469725629b81d3a73ad026897fe561ec59d6245d249a09507db"
+license = "Public Domain; please cite authors"
+attribution = "NASA / Jet Propulsion Laboratory / Paul Schenk / USGS Astrogeology Science Center"
+source_page = "https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m"
+processor = "body_texture"
+max_width = 4096
+output = "triton_albedo.jpg"
+
+[[source]]
+id = "iapetus_usgs"
+description = "Iapetus Cassini/Voyager global mosaic 783m"
+url = "https://planetarymaps.usgs.gov/mosaic/Iapetus_Cassini_Voyager_mosaic_global_783m.tif"
+sha256 = "eb8acdbed3af495102b6ec6d3efce1f03dc6bc39bb43323c23231ce590494d6e"
+license = "Public Domain; please cite authors"
+attribution = "Space Science Institute / Cassini Team / Jet Propulsion Laboratory / USGS Astrogeology Science Center"
+source_page = "https://astrogeology.usgs.gov/search/map/iapetus_cassini_voyager_global_mosaic_803m"
+processor = "body_texture"
+max_width = 4096
+output = "iapetus_albedo.jpg"
+
+[[source]]
 id = "orion-spacecraft"
 description = "Third-party Orion spacecraft GLB model from Sketchfab, manually downloaded as a zip archive"
 url = "https://sketchfab.com/3d-models/orion-spacecraft-fb89e865dcd446b89eaf78deaf213974"
@@ -356,7 +599,7 @@ system_id = "earthSystem"
 frame = "earth-centered-inertial"
 launch_utc = "2026-04-01T22:35:12Z"
 duration_seconds = 783108
-streak_window_seconds = 172800
+streak_window_seconds = 14400
 notes = "Flight path sampled from JPL Horizons Earth-centered vector ephemeris for target -1024. Horizons coverage begins at 2026-04-02T01:59:00Z, so the first 3 hours 23 minutes 48 seconds of the mission remain outside the sampled trajectory."
 references = [
     "https://www.nasa.gov/missions/artemis/artemis-2/",
@@ -365,12 +608,15 @@ references = [
 ]
 
 [source.config.style]
-line_color = "#7ecbff"
-line_opacity = 0.24
-streak_color = "#fff2bc"
-streak_opacity = 0.98
-head_color = "#fff9e3"
-head_radius_km = 320
+line_color = "#888888"
+line_opacity = 0.2
+line_width_px = 5
+streak_color = "#4c6fff"
+streak_opacity = 0.95
+streak_width_px = 5
+head_color = "#4c6fff"
+head_radius_km = 20
+head_size_px = 24
 
 [source.config.visual]
 model_asset_path = "/models/orion_spacecraft.glb"

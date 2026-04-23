@@ -1,0 +1,32 @@
+{
+  "source_id": "europa_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/europa_voyager_galileo_ssi_global_mosaic_500m",
+  "license": "None",
+  "attribution": "USGS Astrogeology Science Center / Galileo SSI / Voyager ISS",
+  "asset_type": "textures",
+  "sha256_raw": "a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624",
+  "sha256_output": "e2fe4065086bb849523406f0bcd5d9af4768f38f1a8b130255ffe3570581c651",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:54.145750+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Europa_Voyager_GalileoSSI_global_mosaic_500m.tif",
+      "path": "data/raw/europa_usgs.tif",
+      "sha256": "a323f0c9ccb47d5af9902ea8297fe81f9a9708795645b80801f103c3f7c9a624"
+    }
+  ],
+  "input_dimensions": [
+    19631,
+    9816
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

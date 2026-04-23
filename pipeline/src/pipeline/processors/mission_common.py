@@ -7,12 +7,15 @@ from datetime import datetime
 from typing import Any, Iterable
 
 DEFAULT_STYLE = {
-    "head_color": "#fff7d6",
+    "head_color": "#4c6fff",
     "head_radius_km": 260,
-    "line_color": "#7ecbff",
-    "line_opacity": 0.26,
-    "streak_color": "#fff1b0",
+    "head_size_px": 16,
+    "line_color": "#888888",
+    "line_opacity": 0.2,
+    "line_width_px": 1,
+    "streak_color": "#4c6fff",
     "streak_opacity": 0.95,
+    "streak_width_px": 2,
 }
 
 COMMON_REQUIRED_CONFIG_KEYS = {

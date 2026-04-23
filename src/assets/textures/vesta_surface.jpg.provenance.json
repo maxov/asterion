@@ -1,0 +1,32 @@
+{
+  "source_id": "vesta_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Vesta_Dawn_HAMO_ClrShade_DLR_Global_48ppd.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/vesta_dawn_fc_hamo_global_color_shaded_relief_93m",
+  "license": "No access constraints; please cite authors",
+  "attribution": "Dawn Team / USGS Astrogeology Science Center",
+  "asset_type": "textures",
+  "sha256_raw": "6d331cde543aa8e12b0ef70ea3ac18fec2daeed8aa5c95488dc6964a461bc028",
+  "sha256_output": "0ee22edc190cd268472c56bf0620b818d8fcc111bd71d44c85e9d2f9b4dc3315",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:49.969017+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Vesta_Dawn_HAMO_ClrShade_DLR_Global_48ppd.tif",
+      "path": "data/raw/vesta_usgs.tif",
+      "sha256": "6d331cde543aa8e12b0ef70ea3ac18fec2daeed8aa5c95488dc6964a461bc028"
+    }
+  ],
+  "input_dimensions": [
+    17280,
+    8640
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

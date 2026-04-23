@@ -18,7 +18,7 @@ Run from the `pipeline/` directory:
 # Fetch all sources
 uv run pipeline fetch
 
-# Process all sources (run processors, install to src/assets/<asset_type>/)
+# Process all sources (run processors, install to src/assets/<asset_type>/, and publish to public/<asset_type>/)
 uv run pipeline process
 
 # Fetch + process (default when no subcommand given)
@@ -27,7 +27,7 @@ uv run pipeline
 # Show source status
 uv run pipeline list
 
-# Copy processed assets to public/<asset_type>/ for runtime loading
+# Re-sync processed assets to public/<asset_type>/ for runtime loading
 uv run pipeline install
 
 # Fetch a single source
@@ -47,17 +47,36 @@ uv run pipeline attribution
 profiles, enabling phase-angle-dependent rendering. The `saturn_rings_fargetanik`
 and `saturn_rings_ppe` entries are fallbacks that produce a single combined ring strip.
 
-**Body textures:** `saturn_body_bjj` is the primary Saturn body map.
+**Body textures:**
+- Prefer official USGS Astrogeology / mission mosaics for rocky or icy bodies when a good global product exists (`phobos_usgs`, `io_color_usgs`, `europa_usgs`, `ganymede_color_usgs`, `callisto_usgs`, `titan_iss_usgs`, `triton_color_usgs`, `iapetus_usgs`).
+- Prefer Solar System Scope for quick CC-BY whole-planet color maps and for gas giants where “artist-friendly” color is usually more useful than provenance-maximal raw mission products (`mercury_sss`, `venus_surface_sss`, `mars_sss`, `jupiter_sss`, `uranus_sss`, `neptune_sss`, `saturn_body_sss`).
+- `saturn_body_bjj` remains the preferred Saturn body map.
+
+Some official moon products are single-band or near-IR rather than natural color.
+That is still the best provenance-first baseline, but if you want a more
+photographic look later, treat those as the detail layer and add color grading,
+atmospheric haze, or a stylized fallback in the renderer.
+
+For dwarf/minor planets, the current catalog takes a pragmatic mixed approach:
+- `vesta_usgs` uses the official Dawn/USGS global colorized relief product.
+- `pluto_usgs` uses the official New Horizons global mosaic from USGS Astrogeology.
+- `ceres_sss`, `haumea_sss`, `makemake_sss`, and `eris_sss` use Solar System Scope CC-BY maps, which are explicitly partly fictional fills for incompletely mapped bodies.
 
 ## Sources
+
+The full registry in `sources.toml` now includes Earth, Moon, mission assets,
+and an expanded catalog of additional planets and major moons. The table below
+just calls out a few headline entries:
 
 | ID | Description | Status |
 |----|-------------|--------|
 | `saturn_body_bjj` | Björn Jónsson's Saturn cylindrical map | Ready |
-| `saturn_body_sss` | Solar System Scope Saturn fallback (CC-BY 4.0) | URLs need filling in |
+| `saturn_body_sss` | Solar System Scope Saturn fallback (CC-BY 4.0) | Ready |
 | `saturn_rings_bjj` | Björn Jónsson's raw ring profiles (5 files) | Ready (preferred) |
-| `saturn_rings_fargetanik` | FarGetaNik's 13K combined RGBA ring texture | Local-only (manual download) |
-| `saturn_rings_ppe` | Planet Pixel Emporium color + transparency rings | URLs need filling in |
+| `saturn_rings_ppe` | Planet Pixel Emporium color + transparency rings | Ready |
+| `mercury_sss` ... `neptune_sss` | Additional whole-planet body maps | Cataloged; record hashes on first fetch |
+| `vesta_usgs`, `ceres_sss`, `pluto_usgs`, `haumea_sss`, `makemake_sss`, `eris_sss` | Dwarf/minor-planet basemaps | Cataloged; record hashes on first fetch |
+| `phobos_usgs` ... `iapetus_usgs` | Curated major-moon basemaps | Cataloged; record hashes on first fetch |
 
 ## Mission assets
 
@@ -263,12 +282,13 @@ Processors transform raw downloads into final assets. Currently available:
 - **`jpl_horizons_mission`** — converts JPL Horizons vector-table responses into sampled mission trajectory assets
 - **`mission_profile`** — normalizes declarative mission metadata into a frontend mission asset JSON
 - **`passthrough`** — copies the file, stripping EXIF/image metadata
-- **`saturn_body`** — validates 2:1 equirectangular maps, converts to RGB, optional resize, outputs JPG/PNG
+- **`body_texture`** — validates 2:1 equirectangular maps, converts to RGB, optional resize, outputs JPG/PNG
+- **`saturn_body`** — backward-compatible alias for older Saturn/Earth/Moon registry entries
 - **`saturn_rings`** — combines ring textures into a 1px-high RGBA PNG strip (supports `combined_rgba` and `color_plus_transparency` input modes)
 - **`saturn_rings_bjj`** — builds scattering (RGBA) and color (RGB) textures from Björn Jónsson's raw 1D ring profiles (5 text files, 13177 samples each)
 - **`zip_glb`** — extracts a GLB member from a zip archive for manually downloaded model assets
 
-Processors are registered in `src/pipeline/processors/__init__.py`. To add one,
+Processors are registered in `pipeline/src/pipeline/processors/__init__.py`. To add one,
 create a new module in `processors/` and add it to the `PROCESSORS` dict.
 
 ## Running tests

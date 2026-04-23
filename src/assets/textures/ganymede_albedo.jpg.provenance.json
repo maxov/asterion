@@ -1,0 +1,32 @@
+{
+  "source_id": "ganymede_color_usgs",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_Global_ClrMosaic_1435m.tif",
+  "source_page": "https://astrogeology.usgs.gov/search/map/ganymede_voyager_galileo_ssi_color_global_mosaic_1_4km",
+  "license": "Public Domain",
+  "attribution": "USGS Astrogeology Science Center / Galileo SSI / Voyager ISS",
+  "asset_type": "textures",
+  "sha256_raw": "da47087e75bc530456d8206d5100ad3c687706353700b0cb44a8400957005a33",
+  "sha256_output": "a02573904a0339849c064d52e860d0ef75783a3698629a03d3ae60f93df3b0b1",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:54.788223+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://planetarymaps.usgs.gov/mosaic/Ganymede_Voyager_GalileoSSI_Global_ClrMosaic_1435m.tif",
+      "path": "data/raw/ganymede_color_usgs.tif",
+      "sha256": "da47087e75bc530456d8206d5100ad3c687706353700b0cb44a8400957005a33"
+    }
+  ],
+  "input_dimensions": [
+    11520,
+    5760
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}

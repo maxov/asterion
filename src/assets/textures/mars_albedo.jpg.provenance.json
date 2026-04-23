@@ -1,0 +1,32 @@
+{
+  "source_id": "mars_sss",
+  "source_url": "https://www.solarsystemscope.com/textures/download/8k_mars.jpg",
+  "source_page": "https://www.solarsystemscope.com/textures/",
+  "license": "CC-BY 4.0",
+  "attribution": "INOVE / Solar System Scope",
+  "asset_type": "textures",
+  "sha256_raw": "4cc52149924abc6ae507d63032f994e1d42a55cb82c09e002d1a567ff66c23ee",
+  "sha256_output": "0afa78318dea22674a821de375679e1a3df93d6cd95c851fab34eef7a183362e",
+  "processor": "body_texture",
+  "pipeline_version": "0.1.0",
+  "processed_at": "2026-04-23T03:17:48.508661+00:00",
+  "raw_inputs": [
+    {
+      "role": "primary",
+      "name": "primary",
+      "url": "https://www.solarsystemscope.com/textures/download/8k_mars.jpg",
+      "path": "data/raw/mars_sss.jpg",
+      "sha256": "4cc52149924abc6ae507d63032f994e1d42a55cb82c09e002d1a567ff66c23ee"
+    }
+  ],
+  "input_dimensions": [
+    8192,
+    4096
+  ],
+  "output_dimensions": [
+    4096,
+    2048
+  ],
+  "output_format": "jpg",
+  "color_space": "sRGB"
+}
