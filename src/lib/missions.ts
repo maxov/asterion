@@ -2,11 +2,16 @@ import type { BodyId, BodySystemId } from "./bodies.ts";
 
 export type MissionStyle = {
   head_color?: string;
+  head_max_size_km?: number;
   head_radius_km?: number;
+  head_size_px?: number;
   line_color?: string;
   line_opacity?: number;
+  line_width_px?: number;
   streak_color?: string;
+  streak_tail_color?: string;
   streak_opacity?: number;
+  streak_width_px?: number;
 };
 
 export type MissionVisual = {
@@ -93,6 +98,7 @@ export type MissionAsset = ProceduralMissionAsset | SampledVectorMissionAsset;
 
 export type MissionRegistryEntry = {
   assetPath: string;
+  color: string;
   id: BodyId;
   label: string;
   launchUtc: string;
@@ -103,6 +109,7 @@ export const MISSION_REGISTRY: readonly MissionRegistryEntry[] = [
   {
     id: "artemis2",
     label: "Artemis II",
+    color: "#4c6fff",
     launchUtc: "2026-04-01T22:35:12Z",
     assetPath: "/missions/artemis_ii.json",
     systemId: "earthSystem",
@@ -243,16 +250,30 @@ function parseStyle(value: unknown): MissionStyle | undefined {
   return {
     head_color:
       typeof value.head_color === "string" ? value.head_color : undefined,
+    head_max_size_km:
+      typeof value.head_max_size_km === "number"
+        ? value.head_max_size_km
+        : undefined,
     head_radius_km:
       typeof value.head_radius_km === "number" ? value.head_radius_km : undefined,
+    head_size_px:
+      typeof value.head_size_px === "number" ? value.head_size_px : undefined,
     line_color:
       typeof value.line_color === "string" ? value.line_color : undefined,
     line_opacity:
       typeof value.line_opacity === "number" ? value.line_opacity : undefined,
+    line_width_px:
+      typeof value.line_width_px === "number" ? value.line_width_px : undefined,
     streak_color:
       typeof value.streak_color === "string" ? value.streak_color : undefined,
+    streak_tail_color:
+      typeof value.streak_tail_color === "string"
+        ? value.streak_tail_color
+        : undefined,
     streak_opacity:
       typeof value.streak_opacity === "number" ? value.streak_opacity : undefined,
+    streak_width_px:
+      typeof value.streak_width_px === "number" ? value.streak_width_px : undefined,
   };
 }
 

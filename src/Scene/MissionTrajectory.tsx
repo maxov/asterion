@@ -1,5 +1,7 @@
-import { useFrame } from "@react-three/fiber";
+import { Line as FatLine } from "@react-three/drei";
+import { useFrame, useThree } from "@react-three/fiber";
 import {
+  type ElementRef,
   useEffect,
   useMemo,
   useRef,
@@ -8,26 +10,23 @@ import {
   type RefObject,
 } from "react";
 import {
-  Box3,
-  BufferGeometry,
+  CanvasTexture,
+  type Blending,
+  CatmullRomCurve3,
   Color,
   DoubleSide,
-  Euler,
-  Float32BufferAttribute,
   Group,
-  Line as ThreeLine,
-  LineBasicMaterial,
+  LinearFilter,
   MathUtils,
-  MeshBasicMaterial,
+  Mesh,
   Object3D,
-  SphereGeometry,
   Vector3,
   type ColorRepresentation,
-  type Material,
 } from "three";
 import { BODY_DEFINITIONS, type BodyId } from "../lib/bodies.ts";
-import type { MissionRegistryEntry, MissionVisual } from "../lib/missions.ts";
+import type { MissionRegistryEntry } from "../lib/missions.ts";
 import { MISSION_REGISTRY } from "../lib/missions.ts";
+import { MISSION_BLOOM_LAYER } from "../lib/renderLayers.ts";
 import {
   buildMissionTrajectorySamples,
   missionHeadStyle,
@@ -44,7 +43,6 @@ import {
 } from "../lib/simulationTimeline.ts";
 import { kmToUnits } from "../lib/units.ts";
 import { useMissionAsset } from "../lib/useMissionAsset.ts";
-import { useMissionModelAsset } from "../lib/useMissionModelAsset.ts";
 
 type MissionTrajectoriesProps = {
   focusBodyId: BodyId;
@@ -59,15 +57,79 @@ type LineChunk = {
   key: number;
   origin: [number, number, number];
   points: [number, number, number][];
+  vertexColors?: [number, number, number][];
 };
 
 const ZERO_POSITION: [number, number, number] = [0, 0, 0];
-const MODEL_BOUNDS = new Box3();
-const MODEL_SIZE = new Vector3();
-const MODEL_CENTER = new Vector3();
-const MODEL_ROTATION = new Euler();
 const MISSION_ROOT_POSITION = new Vector3();
-const DEFAULT_MODEL_COLOR = new Color("#9fdcff");
+const SPACE_BACKGROUND_COLOR = new Color("#05070a");
+const TRAJECTORY_PATH_RENDER_ORDER = 4;
+const TRAJECTORY_STREAK_RENDER_ORDER = 5;
+const TRAJECTORY_STREAK_GLOW_RENDER_ORDER = 5.5;
+const ORB_CORE_RENDER_ORDER = 6;
+const ORB_GLOW_RENDER_ORDER = 7;
+const ORB_BLOOM_CORE_INTENSITY = 5.8;
+const ORB_BLOOM_GLOW_INTENSITY = 3.3;
+const ORB_BLOOM_GLOW_SIZE_MULTIPLIER = 3;
+const ORB_BLOOM_GLOW_OPACITY = 0.96;
+const STREAK_VISIBLE_HEAD_INTENSITY = 1.15;
+const STREAK_GLOW_TAIL_INTENSITY = 1;
+const STREAK_GLOW_HEAD_INTENSITY = 5.5;
+const STREAK_GLOW_WIDTH_MULTIPLIER = 1.05;
+const ORB_WORLD_POSITION = new Vector3();
+const MISSION_VISUAL_FADE_START_DISTANCE = kmToUnits(12_000);
+const MISSION_VISUAL_FADE_END_DISTANCE = kmToUnits(90_000);
+const MISSION_BLOOM_FADE_START_DISTANCE = kmToUnits(16_000);
+const MISSION_BLOOM_FADE_HALF_DISTANCE = kmToUnits(220_000);
+const STREAK_FAR_WIDTH_SCALE = 0.6;
+const STREAK_MIN_WIDTH_PX = 2;
+const HEAD_FAR_SIZE_SCALE = 0.46;
+const HEAD_MIN_SIZE_TO_PATH_RATIO = 1.8;
+const HEAD_MIN_SIZE_PX = 10;
+const BLOOM_DISTANCE_FADE_EXPONENT = 1.25;
+const ORB_BLOOM_CORE_FAR_INTENSITY_SCALE = 0.74;
+const ORB_BLOOM_GLOW_FAR_INTENSITY_SCALE = 0.56;
+const ORB_BLOOM_GLOW_FAR_OPACITY_SCALE = 0.58;
+const ORB_BLOOM_GLOW_FAR_SIZE_MULTIPLIER = 2.2;
+const STREAK_GLOW_HEAD_FAR_INTENSITY_SCALE = 0.58;
+const STREAK_GLOW_TAIL_FAR_INTENSITY_SCALE = 0.72;
+const MISSION_CAMERA_DISTANCE_POSITION = new Vector3();
+const MISSION_VISUAL_WORLD_POSITION = new Vector3();
+
+function assignSingleLayer(object: Object3D | null | undefined, layer: number) {
+  if (!object?.layers) return;
+  object.layers.disableAll();
+  object.layers.enable(layer);
+}
+
+function bakeOpacityIntoColor(
+  color: ColorRepresentation,
+  opacity: number,
+) {
+  return SPACE_BACKGROUND_COLOR.clone().lerp(new Color(color), opacity);
+}
+
+function smoothDistanceFade(
+  distance: number,
+  startDistance: number,
+  endDistance: number,
+) {
+  if (endDistance <= startDistance) return 1;
+  return MathUtils.smoothstep(distance, startDistance, endDistance);
+}
+
+function asymptoticDistanceFade(
+  distance: number,
+  startDistance: number,
+  halfDistance: number,
+  exponent: number,
+) {
+  if (distance <= startDistance) return 0;
+  const safeRange = Math.max(halfDistance - startDistance, 1e-6);
+  const normalized = (distance - startDistance) / safeRange;
+  const weighted = Math.pow(Math.max(normalized, 0), exponent);
+  return weighted / (1 + weighted);
+}
 
 function toUnits(
   points: readonly Vector3[],
@@ -83,9 +145,35 @@ function toUnits(
   ] as [number, number, number]);
 }
 
+function smoothTrajectoryPoints(
+  points: readonly [number, number, number][],
+  subdivisionsPerSegment: number,
+) {
+  if (points.length < 3 || subdivisionsPerSegment <= 1) {
+    return points.slice() as [number, number, number][];
+  }
+
+  const curve = new CatmullRomCurve3(
+    points.map((point) => new Vector3(point[0], point[1], point[2])),
+    false,
+    "centripetal",
+  );
+  const divisions = Math.max(
+    points.length - 1,
+    (points.length - 1) * subdivisionsPerSegment,
+  );
+
+  return curve.getPoints(divisions).map((point) => [
+    point.x,
+    point.y,
+    point.z,
+  ] as [number, number, number]);
+}
+
 function buildLineChunks(
   points: readonly [number, number, number][],
   chunkSize: number,
+  vertexColors?: readonly [number, number, number][],
 ) {
   if (points.length < 2 || chunkSize < 2 || points.length <= chunkSize) {
     return [
@@ -93,6 +181,7 @@ function buildLineChunks(
         key: 0,
         origin: ZERO_POSITION,
         points: points.slice() as [number, number, number][],
+        vertexColors: vertexColors?.slice() as [number, number, number][] | undefined,
       },
     ] satisfies LineChunk[];
   }
@@ -124,6 +213,9 @@ function buildLineChunks(
         point[1] - originY,
         point[2] - originZ,
       ]),
+      vertexColors: vertexColors?.slice(start, end) as
+        | [number, number, number][]
+        | undefined,
     });
 
     if (end === points.length) break;
@@ -133,23 +225,39 @@ function buildLineChunks(
 }
 
 function TrajectoryLine({
+  bakeOpacity = true,
+  blending,
   chunkSize = 0,
   color,
   depthTest = true,
+  depthWrite = false,
+  lineWidthPx = 1,
+  materialOpacity = 1,
+  materialTransparent = false,
+  layer,
   opacity,
   points,
   renderOrder = 0,
+  vertexColors,
 }: {
+  bakeOpacity?: boolean;
+  blending?: Blending;
   chunkSize?: number;
   color: ColorRepresentation;
   depthTest?: boolean;
+  depthWrite?: boolean;
+  lineWidthPx?: number;
+  materialOpacity?: number;
+  materialTransparent?: boolean;
+  layer?: number;
   opacity: number;
   points: readonly [number, number, number][];
   renderOrder?: number;
+  vertexColors?: readonly [number, number, number][];
 }) {
   const chunks = useMemo(
-    () => buildLineChunks(points, chunkSize),
-    [chunkSize, points],
+    () => buildLineChunks(points, chunkSize, vertexColors),
+    [chunkSize, points, vertexColors],
   );
 
   if (points.length < 2) return null;
@@ -158,13 +266,21 @@ function TrajectoryLine({
     <group>
       {chunks.map((chunk) => (
         <TrajectoryLineChunk
+          bakeOpacity={bakeOpacity}
+          blending={blending}
           key={chunk.key}
           color={color}
           depthTest={depthTest}
+          depthWrite={depthWrite}
+          lineWidthPx={lineWidthPx}
+          materialOpacity={materialOpacity}
+          materialTransparent={materialTransparent}
+          layer={layer}
           opacity={opacity}
           origin={chunk.origin}
           points={chunk.points}
           renderOrder={renderOrder}
+          vertexColors={chunk.vertexColors}
         />
       ))}
     </group>
@@ -172,277 +288,365 @@ function TrajectoryLine({
 }
 
 function TrajectoryLineChunk({
+  bakeOpacity,
+  blending,
   color,
   depthTest,
+  depthWrite,
+  lineWidthPx,
+  materialOpacity,
+  materialTransparent,
+  layer,
   opacity,
   origin,
   points,
   renderOrder,
+  vertexColors,
 }: {
+  bakeOpacity: boolean;
+  blending?: Blending;
   color: ColorRepresentation;
   depthTest: boolean;
+  depthWrite: boolean;
+  lineWidthPx: number;
+  materialOpacity: number;
+  materialTransparent: boolean;
+  layer?: number;
   opacity: number;
   origin: [number, number, number];
   points: readonly [number, number, number][];
   renderOrder: number;
+  vertexColors?: readonly [number, number, number][];
 }) {
-  const geometry = useMemo(() => {
-    const geo = new BufferGeometry();
-    const positions = new Float32Array(points.length * 3);
-    for (let i = 0; i < points.length; i++) {
-      positions[i * 3] = points[i][0];
-      positions[i * 3 + 1] = points[i][1];
-      positions[i * 3 + 2] = points[i][2];
-    }
-    geo.setAttribute("position", new Float32BufferAttribute(positions, 3));
-    geo.computeBoundingSphere();
-    return geo;
-  }, [points]);
-
-  const material = useMemo(
-    () =>
-      new LineBasicMaterial({
-        color,
-        depthTest,
-        opacity,
-        transparent: true,
-        depthWrite: false,
-        toneMapped: false,
-      }),
-    [color, opacity],
+  const lineRef = useRef<ElementRef<typeof FatLine> | null>(null);
+  const renderedColor = useMemo(
+    () => (bakeOpacity ? bakeOpacityIntoColor(color, opacity) : new Color(color)),
+    [bakeOpacity, color, opacity],
   );
 
-  const line = useMemo(() => {
-    const l = new ThreeLine(geometry, material);
-    l.frustumCulled = false;
-    l.renderOrder = renderOrder;
-    return l;
-  }, [geometry, material, renderOrder]);
-
   useEffect(() => {
-    return () => {
-      material.dispose();
-      geometry.dispose();
-    };
-  }, [geometry, material]);
+    if (layer === undefined) return;
+    assignSingleLayer(lineRef.current, layer);
+  }, [layer]);
 
   if (points.length < 2) return null;
 
   return (
     <group position={origin}>
-      <primitive object={line} />
+      <FatLine
+        blending={blending}
+        color={vertexColors ? "#ffffff" : renderedColor}
+        depthTest={depthTest}
+        depthWrite={depthWrite}
+        frustumCulled={false}
+        lineWidth={lineWidthPx}
+        opacity={materialOpacity}
+        points={points}
+        ref={lineRef}
+        renderOrder={renderOrder}
+        toneMapped={false}
+        transparent={materialTransparent}
+        vertexColors={vertexColors}
+        worldUnits={false}
+      />
     </group>
   );
 }
-
-const FADE_SEGMENTS = 12;
 
 function FadingStreakLine({
+  bakeOpacity = true,
+  blending,
   color,
   depthTest = true,
+  headIntensity = 1,
+  lineWidthPx = 1,
+  materialOpacity = 1,
+  materialTransparent = false,
+  layer,
   opacity,
   points,
   renderOrder = 0,
+  tailColor,
+  tailIntensity = 1,
 }: {
+  bakeOpacity?: boolean;
+  blending?: Blending;
   color: ColorRepresentation;
   depthTest?: boolean;
+  headIntensity?: number;
+  lineWidthPx?: number;
+  materialOpacity?: number;
+  materialTransparent?: boolean;
+  layer?: number;
   opacity: number;
   points: readonly [number, number, number][];
   renderOrder?: number;
+  tailColor?: ColorRepresentation;
+  tailIntensity?: number;
 }) {
-  const segments = useMemo(() => {
+  const vertexColors = useMemo(() => {
     if (points.length < 2) return [];
-    const result: { points: [number, number, number][]; opacity: number }[] = [];
-    const totalPoints = points.length;
-    const segLen = Math.max(2, Math.ceil(totalPoints / FADE_SEGMENTS));
+    const gradientTailColor = new Color(tailColor ?? color).multiplyScalar(tailIntensity);
+    const brightHeadColor = new Color(color).multiplyScalar(headIntensity);
+    const lastIndex = Math.max(points.length - 1, 1);
 
-    for (let i = 0; i < FADE_SEGMENTS; i++) {
-      const start = Math.min(i * segLen, totalPoints - 1);
-      const end = Math.min((i + 1) * segLen, totalPoints - 1);
-      if (end <= start) continue;
-      const slice = points.slice(start, end + 1) as [number, number, number][];
-      if (slice.length < 2) continue;
-      const t = (i + 1) / FADE_SEGMENTS;
-      const fade = t * t * t;
-      result.push({ points: slice, opacity: opacity * fade });
-    }
-    return result;
-  }, [points, opacity]);
+    return points.map((_, index) => {
+      const normalized = index / lastIndex;
+      const t = normalized * normalized * (3 - 2 * normalized);
+      const blended = gradientTailColor.clone().lerp(brightHeadColor, t);
+      if (!bakeOpacity) {
+        return blended.toArray().slice(0, 3) as [number, number, number];
+      }
+      const baked = bakeOpacityIntoColor(blended, opacity);
+      return baked.toArray().slice(0, 3) as [number, number, number];
+    });
+  }, [
+    bakeOpacity,
+    color,
+    headIntensity,
+    opacity,
+    points,
+    tailColor,
+    tailIntensity,
+  ]);
 
-  if (points.length < 2) return [];
+  if (points.length < 2) return null;
 
   return (
-    <group>
-      {segments.map((seg, i) => (
-        <TrajectoryLine
-          key={i}
-          color={color}
-          depthTest={depthTest}
-          opacity={seg.opacity}
-          points={seg.points}
-          renderOrder={renderOrder}
-        />
-      ))}
-    </group>
+    <TrajectoryLine
+      bakeOpacity={bakeOpacity}
+      blending={blending}
+      color="#ffffff"
+      depthTest={depthTest}
+      lineWidthPx={lineWidthPx}
+      materialOpacity={materialOpacity}
+      materialTransparent={materialTransparent}
+      layer={layer}
+      opacity={1}
+      points={points}
+      renderOrder={renderOrder}
+      vertexColors={vertexColors}
+    />
   );
 }
 
-function sampleTrajectoryPoints(
-  points: readonly [number, number, number][],
-  maxPoints: number,
+function createRadialTexture(
+  stops: readonly [offset: number, alpha: number][],
 ) {
-  if (points.length <= maxPoints) {
-    return points.map((point) => new Vector3(point[0], point[1], point[2]));
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("2D canvas context unavailable for mission orb texture");
   }
 
-  const sampled: Vector3[] = [];
-  const lastIndex = points.length - 1;
-  const step = lastIndex / (maxPoints - 1);
+  const gradient = context.createRadialGradient(
+    size / 2,
+    size / 2,
+    0,
+    size / 2,
+    size / 2,
+    size / 2,
+  );
 
-  for (let i = 0; i < maxPoints; i += 1) {
-    const index = Math.min(lastIndex, Math.round(i * step));
-    const point = points[index];
-    const previous = sampled.at(-1);
-    if (
-      previous &&
-      previous.x === point[0] &&
-      previous.y === point[1] &&
-      previous.z === point[2]
-    ) {
-      continue;
-    }
-    sampled.push(new Vector3(point[0], point[1], point[2]));
+  for (const [offset, alpha] of stops) {
+    gradient.addColorStop(offset, `rgba(255, 255, 255, ${alpha})`);
   }
 
-  return sampled;
+  context.clearRect(0, 0, size, size);
+  context.fillStyle = gradient;
+  context.fillRect(0, 0, size, size);
+
+  const texture = new CanvasTexture(canvas);
+  texture.generateMipmaps = false;
+  texture.magFilter = LinearFilter;
+  texture.minFilter = LinearFilter;
+  return texture;
 }
 
-function TrajectoryDots({
+function pixelsToWorldUnits(
+  distance: number,
+  viewportHeightPx: number,
+  fovDeg: number,
+  sizePx: number,
+) {
+  const safeDistance = Math.max(distance, 1e-6);
+  const worldHeight =
+    2 * Math.tan(MathUtils.degToRad(fovDeg) * 0.5) * safeDistance;
+  return (worldHeight / Math.max(viewportHeightPx, 1)) * sizePx;
+}
+
+function ScreenSpaceOrb({
   color,
-  depthTest = true,
-  maxPoints = 256,
-  opacity,
-  points,
-  radius,
-  renderOrder = 0,
+  distanceFade = 0,
+  maxSizeKm,
+  sizePx,
 }: {
   color: ColorRepresentation;
-  depthTest?: boolean;
-  maxPoints?: number;
-  opacity: number;
-  points: readonly [number, number, number][];
-  radius: number;
-  renderOrder?: number;
+  distanceFade?: number;
+  maxSizeKm?: number;
+  sizePx: number;
 }) {
-  const sampledPoints = useMemo(
-    () => sampleTrajectoryPoints(points, maxPoints),
-    [maxPoints, points],
-  );
-  const geometry = useMemo(() => new SphereGeometry(radius, 8, 8), [radius]);
-
-  const material = useMemo(
+  const { camera, size } = useThree();
+  const groupRef = useRef<Group>(null);
+  const coreRef = useRef<Mesh>(null);
+  const bloomCoreRef = useRef<Mesh>(null);
+  const bloomGlowRef = useRef<Mesh>(null);
+  const coreTexture = useMemo(
     () =>
-      new MeshBasicMaterial({
-        color,
-        depthTest,
-        depthWrite: false,
-        opacity,
-        toneMapped: false,
-        transparent: opacity < 1,
-      }),
-    [color, depthTest, opacity],
+      createRadialTexture([
+        [0, 1],
+        [0.56, 1],
+        [0.82, 0.96],
+        [1, 0],
+      ]),
+    [],
+  );
+  const glowTexture = useMemo(
+    () =>
+      createRadialTexture([
+        [0, 1],
+        [0.2, 0.88],
+        [0.5, 0.35],
+        [0.82, 0.08],
+        [1, 0],
+      ]),
+    [],
+  );
+  const coreColor = useMemo(() => new Color(color), [color]);
+  const bloomCoreColor = useMemo(
+    () =>
+      new Color(color).multiplyScalar(
+        MathUtils.lerp(
+          ORB_BLOOM_CORE_INTENSITY,
+          ORB_BLOOM_CORE_INTENSITY * ORB_BLOOM_CORE_FAR_INTENSITY_SCALE,
+          distanceFade,
+        ),
+      ),
+    [color, distanceFade],
+  );
+  const bloomGlowColor = useMemo(
+    () =>
+      new Color(color).multiplyScalar(
+        MathUtils.lerp(
+          ORB_BLOOM_GLOW_INTENSITY,
+          ORB_BLOOM_GLOW_INTENSITY * ORB_BLOOM_GLOW_FAR_INTENSITY_SCALE,
+          distanceFade,
+        ),
+      ),
+    [color, distanceFade],
+  );
+  const glowOpacity = useMemo(
+    () =>
+      MathUtils.lerp(
+        ORB_BLOOM_GLOW_OPACITY,
+        ORB_BLOOM_GLOW_OPACITY * ORB_BLOOM_GLOW_FAR_OPACITY_SCALE,
+        distanceFade,
+      ),
+    [distanceFade],
+  );
+  const glowSizeMultiplier = useMemo(
+    () =>
+      MathUtils.lerp(
+        ORB_BLOOM_GLOW_SIZE_MULTIPLIER,
+        ORB_BLOOM_GLOW_FAR_SIZE_MULTIPLIER,
+        distanceFade,
+      ),
+    [distanceFade],
   );
 
   useEffect(() => {
     return () => {
-      geometry.dispose();
-      material.dispose();
+      coreTexture.dispose();
+      glowTexture.dispose();
     };
-  }, [geometry, material]);
+  }, [coreTexture, glowTexture]);
 
-  if (sampledPoints.length === 0) return null;
+  useEffect(() => {
+    assignSingleLayer(bloomCoreRef.current, MISSION_BLOOM_LAYER);
+    assignSingleLayer(bloomGlowRef.current, MISSION_BLOOM_LAYER);
+  }, []);
+
+  useFrame(() => {
+    const group = groupRef.current;
+    if (!group) return;
+
+    group.quaternion.copy(camera.quaternion);
+
+    const perspectiveCamera = camera as typeof camera & {
+      isPerspectiveCamera?: boolean;
+      fov?: number;
+    };
+    if (!perspectiveCamera.isPerspectiveCamera || perspectiveCamera.fov === undefined) {
+      return;
+    }
+
+    group.getWorldPosition(ORB_WORLD_POSITION);
+    const distance = camera.position.distanceTo(ORB_WORLD_POSITION);
+    const unconstrainedCoreScale = pixelsToWorldUnits(
+      distance,
+      size.height,
+      perspectiveCamera.fov,
+      sizePx,
+    );
+    const maxCoreScale =
+      typeof maxSizeKm === "number" && Number.isFinite(maxSizeKm) && maxSizeKm > 0
+        ? kmToUnits(maxSizeKm)
+        : Number.POSITIVE_INFINITY;
+    const coreScale = Math.min(unconstrainedCoreScale, maxCoreScale);
+    const glowScale = coreScale * glowSizeMultiplier;
+
+    coreRef.current?.scale.set(coreScale, coreScale, 1);
+    bloomCoreRef.current?.scale.set(coreScale, coreScale, 1);
+    bloomGlowRef.current?.scale.set(glowScale, glowScale, 1);
+  }, -0.25);
 
   return (
-    <group>
-      {sampledPoints.map((point, index) => (
-        <mesh
-          key={index}
-          frustumCulled={false}
-          geometry={geometry}
-          material={material}
-          position={[point.x, point.y, point.z]}
-          renderOrder={renderOrder}
+    <group ref={groupRef}>
+      <mesh ref={coreRef} frustumCulled={false} renderOrder={ORB_CORE_RENDER_ORDER}>
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          color={coreColor}
+          depthWrite={false}
+          map={coreTexture}
+          toneMapped={false}
+          transparent
         />
-      ))}
+      </mesh>
+      <mesh
+        ref={bloomCoreRef}
+        frustumCulled={false}
+        renderOrder={ORB_CORE_RENDER_ORDER}
+      >
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          color={bloomCoreColor}
+          depthWrite={false}
+          map={coreTexture}
+          toneMapped={false}
+          transparent
+        />
+      </mesh>
+      <mesh
+        ref={bloomGlowRef}
+        frustumCulled={false}
+        renderOrder={ORB_GLOW_RENDER_ORDER}
+      >
+        <planeGeometry args={[1, 1]} />
+        <meshBasicMaterial
+          color={bloomGlowColor}
+          depthWrite={false}
+          map={glowTexture}
+          opacity={glowOpacity}
+          toneMapped={false}
+          transparent
+        />
+      </mesh>
     </group>
   );
-}
-
-function createVisibleMaterial(material: Material) {
-  const color =
-    "color" in material && material.color instanceof Color
-      ? material.color
-      : DEFAULT_MODEL_COLOR;
-
-  return new MeshBasicMaterial({
-    color,
-    depthWrite: true,
-    opacity: material.opacity,
-    side: DoubleSide,
-    toneMapped: false,
-    transparent: material.transparent,
-  });
-}
-
-function buildMissionModel(
-  source: Group,
-  visual: MissionVisual | undefined,
-) {
-  if (!visual?.model_asset_path) return null;
-
-  const root = new Group();
-  const scene = source.clone(true);
-  scene.updateMatrixWorld(true);
-
-  MODEL_BOUNDS.setFromObject(scene);
-  MODEL_BOUNDS.getSize(MODEL_SIZE);
-  MODEL_BOUNDS.getCenter(MODEL_CENTER);
-  scene.position.sub(MODEL_CENTER);
-
-  const longestDimension = Math.max(
-    MODEL_SIZE.x,
-    MODEL_SIZE.y,
-    MODEL_SIZE.z,
-    1e-6,
-  );
-  if (visual.model_longest_dimension_m) {
-    const targetDimensionUnits = kmToUnits(visual.model_longest_dimension_m / 1000);
-    scene.scale.setScalar(targetDimensionUnits / longestDimension);
-  }
-
-  if (visual.model_rotation_deg) {
-    MODEL_ROTATION.set(
-      MathUtils.degToRad(visual.model_rotation_deg[0]),
-      MathUtils.degToRad(visual.model_rotation_deg[1]),
-      MathUtils.degToRad(visual.model_rotation_deg[2]),
-    );
-    scene.rotation.copy(MODEL_ROTATION);
-  }
-
-  scene.traverse((object) => {
-    object.frustumCulled = false;
-    if ("material" in object) {
-      const material = object.material;
-      if (Array.isArray(material)) {
-        object.material = material.map(createVisibleMaterial);
-      } else if (material) {
-        object.material = createVisibleMaterial(material as Material);
-      }
-    }
-  });
-
-  root.add(scene);
-  return root;
 }
 
 function MissionTrajectory({
@@ -462,28 +666,22 @@ function MissionTrajectory({
   systemOriginKmRef: MutableRefObject<Vector3>;
   timeline: SimulationTimeline;
 }) {
+  const camera = useThree((state) => state.camera);
   const { asset, error } = useMissionAsset(assetPath);
   const [progressSeconds, setProgressSeconds] = useState(0);
+  const [bloomDistanceFade, setBloomDistanceFade] = useState(0);
+  const [distanceFade, setDistanceFade] = useState(0);
+  const bloomDistanceFadeRef = useRef(0);
+  const distanceFadeRef = useRef(0);
   const progressRef = useRef(0);
   const missionRootRef = useRef<Group>(null);
   const missionPositionKmRef = useRef(new Vector3());
-  const { asset: modelAsset, error: modelError } = useMissionModelAsset(
-    asset?.visual?.model_asset_path,
-  );
   const missionFocused = focusBodyId === missionId;
 
   useEffect(() => {
     if (!error) return;
     console.warn(`Mission asset failed to load: ${assetPath}`, error);
   }, [assetPath, error]);
-
-  useEffect(() => {
-    if (!modelError || !asset?.visual?.model_asset_path) return;
-    console.warn(
-      `Mission model failed to load: ${asset.visual.model_asset_path}`,
-      modelError,
-    );
-  }, [asset?.visual?.model_asset_path, modelError]);
 
   const samples = useMemo(
     () => (asset ? buildMissionTrajectorySamples(asset) : []),
@@ -494,26 +692,20 @@ function MissionTrajectory({
     [samples],
   );
   const fullPathPoints = useMemo(
-    () => toUnits(samplePositions),
+    () => smoothTrajectoryPoints(toUnits(samplePositions), 4),
     [samplePositions],
   );
   const lineStyle = asset ? missionLineStyle(asset) : null;
   const streakStyle = asset ? missionStreakStyle(asset) : null;
   const headStyle = asset ? missionHeadStyle(asset) : null;
+  const streakTailColor =
+    streakStyle?.tailColor ??
+    (lineStyle ? bakeOpacityIntoColor(lineStyle.color, lineStyle.opacity) : undefined);
   const focusLocatorRadius = kmToUnits(
     Math.max(
       0.00002,
       Math.min(BODY_DEFINITIONS[missionId].minDistanceKm * 0.25, 0.000125),
     ),
-  );
-  const focusedPathDotRadius = Math.max(kmToUnits(0.5), focusLocatorRadius * 4_000);
-  const focusedStreakDotRadius = focusedPathDotRadius * 1.5;
-  const model = useMemo(
-    () =>
-      asset?.visual && modelAsset
-        ? buildMissionModel(modelAsset.scene, asset.visual)
-        : null,
-    [asset?.visual, modelAsset],
   );
 
   useFrame(() => {
@@ -561,66 +753,128 @@ function MissionTrajectory({
     );
   }, -0.5);
 
+  useFrame(() => {
+    MISSION_CAMERA_DISTANCE_POSITION
+      .copy(systemOriginKmRef.current)
+      .add(missionPositionKmRef.current);
+    MISSION_VISUAL_WORLD_POSITION.set(
+      kmToUnits(MISSION_CAMERA_DISTANCE_POSITION.x),
+      kmToUnits(MISSION_CAMERA_DISTANCE_POSITION.y),
+      kmToUnits(MISSION_CAMERA_DISTANCE_POSITION.z),
+    );
+    const nextDistanceFade = smoothDistanceFade(
+      camera.position.distanceTo(MISSION_VISUAL_WORLD_POSITION),
+      MISSION_VISUAL_FADE_START_DISTANCE,
+      MISSION_VISUAL_FADE_END_DISTANCE,
+    );
+    const nextBloomDistanceFade = asymptoticDistanceFade(
+      camera.position.distanceTo(MISSION_VISUAL_WORLD_POSITION),
+      MISSION_BLOOM_FADE_START_DISTANCE,
+      MISSION_BLOOM_FADE_HALF_DISTANCE,
+      BLOOM_DISTANCE_FADE_EXPONENT,
+    );
+
+    if (Math.abs(distanceFadeRef.current - nextDistanceFade) >= 0.01) {
+      distanceFadeRef.current = nextDistanceFade;
+      setDistanceFade(nextDistanceFade);
+    }
+    if (Math.abs(bloomDistanceFadeRef.current - nextBloomDistanceFade) >= 0.01) {
+      bloomDistanceFadeRef.current = nextBloomDistanceFade;
+      setBloomDistanceFade(nextBloomDistanceFade);
+    }
+  }, -0.4);
+
   const streakPoints = useMemo(() => {
     if (!asset || samples.length === 0) return [];
-    return toUnits(
-      sliceMissionTrajectory(
-        samples,
-        Math.max(0, progressSeconds - asset.streakWindowSeconds),
-        progressSeconds,
+    return smoothTrajectoryPoints(
+      toUnits(
+        sliceMissionTrajectory(
+          samples,
+          Math.max(0, progressSeconds - asset.streakWindowSeconds),
+          progressSeconds,
+        ),
       ),
+      6,
     );
   }, [asset, progressSeconds, samples]);
-  const shouldShowHead =
-    !!headStyle &&
-    (!asset?.visual?.model_asset_path ||
-      asset.visual.show_head !== false ||
-      !model ||
-      !!modelError);
+  const pathWidthPx = lineStyle?.widthPx ?? 1;
+  const streakWidthPx = useMemo(() => {
+    if (!streakStyle) return 1;
+    const farWidthPx = Math.max(
+      STREAK_MIN_WIDTH_PX,
+      streakStyle.widthPx * STREAK_FAR_WIDTH_SCALE,
+    );
+    return MathUtils.lerp(streakStyle.widthPx, farWidthPx, distanceFade);
+  }, [distanceFade, streakStyle]);
+  const headSizePx = useMemo(() => {
+    if (!headStyle) return 0;
+    const farSizePx = Math.min(
+      headStyle.sizePx,
+      Math.max(
+        HEAD_MIN_SIZE_PX,
+        pathWidthPx * HEAD_MIN_SIZE_TO_PATH_RATIO,
+        headStyle.sizePx * HEAD_FAR_SIZE_SCALE,
+      ),
+    );
+    return MathUtils.lerp(headStyle.sizePx, farSizePx, distanceFade);
+  }, [distanceFade, headStyle, pathWidthPx]);
+  const streakGlowHeadIntensity = useMemo(
+    () =>
+      MathUtils.lerp(
+        STREAK_GLOW_HEAD_INTENSITY,
+        STREAK_GLOW_HEAD_INTENSITY * STREAK_GLOW_HEAD_FAR_INTENSITY_SCALE,
+        bloomDistanceFade,
+      ),
+    [bloomDistanceFade],
+  );
+  const streakGlowTailIntensity = useMemo(
+    () =>
+      MathUtils.lerp(
+        STREAK_GLOW_TAIL_INTENSITY,
+        STREAK_GLOW_TAIL_INTENSITY * STREAK_GLOW_TAIL_FAR_INTENSITY_SCALE,
+        bloomDistanceFade,
+      ),
+    [bloomDistanceFade],
+  );
 
   return (
       <group ref={missionRootRef}>
         {asset && samples.length >= 2 && lineStyle ? (
-          missionFocused ? (
-            <TrajectoryDots
-              color={lineStyle.color}
-              depthTest={false}
-              maxPoints={320}
-              opacity={lineStyle.opacity}
-              points={fullPathPoints}
-              radius={focusedPathDotRadius}
-              renderOrder={8}
-            />
-          ) : (
-            <TrajectoryLine
-              chunkSize={64}
-              color={lineStyle.color}
-              opacity={lineStyle.opacity}
-              points={fullPathPoints}
-            />
-          )
-      ) : null}
+          <TrajectoryLine
+            chunkSize={64}
+            color={lineStyle.color}
+            lineWidthPx={lineStyle.widthPx}
+            opacity={lineStyle.opacity}
+            points={fullPathPoints}
+            renderOrder={TRAJECTORY_PATH_RENDER_ORDER}
+          />
+        ) : null}
       {asset && streakPoints.length >= 2 && streakStyle ? (
-          missionFocused ? (
-            <TrajectoryDots
-              color={streakStyle.color}
-              depthTest={false}
-              maxPoints={96}
-              opacity={streakStyle.opacity}
-              points={streakPoints}
-              radius={focusedStreakDotRadius}
-              renderOrder={9}
-            />
-          ) : (
+          <>
             <FadingStreakLine
               color={streakStyle.color}
+              headIntensity={streakGlowHeadIntensity}
+              lineWidthPx={streakWidthPx * STREAK_GLOW_WIDTH_MULTIPLIER}
+              bakeOpacity={false}
+              layer={MISSION_BLOOM_LAYER}
+              opacity={1}
+              points={streakPoints}
+              renderOrder={TRAJECTORY_STREAK_GLOW_RENDER_ORDER}
+              tailColor={streakTailColor}
+              tailIntensity={streakGlowTailIntensity}
+            />
+            <FadingStreakLine
+              color={streakStyle.color}
+              headIntensity={STREAK_VISIBLE_HEAD_INTENSITY}
+              lineWidthPx={streakWidthPx}
               opacity={streakStyle.opacity}
               points={streakPoints}
+              renderOrder={TRAJECTORY_STREAK_RENDER_ORDER}
+              tailColor={streakTailColor}
             />
-          )
+          </>
       ) : null}
       <group ref={anchorRef} name={missionId} position={ZERO_POSITION}>
-        {model ? <primitive object={model} /> : null}
         {missionFocused ? (
           <mesh frustumCulled={false} renderOrder={10}>
             <sphereGeometry args={[focusLocatorRadius, 14, 14]} />
@@ -636,11 +890,13 @@ function MissionTrajectory({
             />
           </mesh>
         ) : null}
-        {shouldShowHead ? (
-          <mesh>
-            <sphereGeometry args={[kmToUnits(headStyle.radiusKm), 18, 18]} />
-            <meshBasicMaterial color={headStyle.color} toneMapped={false} />
-          </mesh>
+        {headStyle ? (
+          <ScreenSpaceOrb
+            color={headStyle.color}
+            distanceFade={bloomDistanceFade}
+            maxSizeKm={headStyle.maxSizeKm}
+            sizePx={headSizePx}
+          />
         ) : null}
       </group>
     </group>

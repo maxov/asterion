@@ -136,6 +136,7 @@ type FocusHudControlProps = {
   focusBodyId: BodyId;
   activeMissionId: string | null;
   onFocusBodyChange: (focusBodyId: BodyId) => void;
+  onOpenChange?: (open: boolean) => void;
 };
 
 function hudSurfaceStyle(
@@ -210,8 +211,13 @@ function FocusHudControl({
   focusBodyId,
   activeMissionId,
   onFocusBodyChange,
+  onOpenChange,
 }: FocusHudControlProps) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
   const { mounted, visible } = useDeferredOpen(open);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -311,8 +317,51 @@ function FocusHudControl({
             transition: `opacity ${HUD_FADE_MS}ms ease`,
           }}
         >
+          {activeMission && (() => {
+            const selected = activeMission.id === focusBodyId;
+            return (
+              <button
+                key={activeMission.id}
+                role="option"
+                aria-selected={selected}
+                type="button"
+                onClick={() => {
+                  onFocusBodyChange(activeMission.id);
+                  setOpen(false);
+                }}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  padding: "0.4rem 0.6rem",
+                  border: "none",
+                  borderRadius: "0.35rem",
+                  background: selected
+                    ? "rgba(255, 255, 255, 0.1)"
+                    : "transparent",
+                  color: activeMission.color,
+                  cursor: "pointer",
+                  fontFamily: HUD_FONT_FAMILY,
+                  fontSize: "0.72rem",
+                  letterSpacing: "0.02em",
+                  textAlign: "left",
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected)
+                    e.currentTarget.style.background =
+                      "rgba(255, 255, 255, 0.06)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!selected)
+                    e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {activeMission.label}
+              </button>
+            );
+          })()}
           {FOCUS_BODY_OPTIONS.map((body) => {
             const selected = body.id === focusBodyId;
+            const isMoon = body.parentId != null;
             return (
               <button
                 key={body.id}
@@ -327,6 +376,7 @@ function FocusHudControl({
                   display: "block",
                   width: "100%",
                   padding: "0.4rem 0.6rem",
+                  paddingLeft: isMoon ? "1.4rem" : "0.6rem",
                   border: "none",
                   borderRadius: "0.35rem",
                   background: selected
@@ -353,48 +403,6 @@ function FocusHudControl({
               </button>
             );
           })}
-          {activeMission && (() => {
-            const selected = activeMission.id === focusBodyId;
-            return (
-              <button
-                key={activeMission.id}
-                role="option"
-                aria-selected={selected}
-                type="button"
-                onClick={() => {
-                  onFocusBodyChange(activeMission.id);
-                  setOpen(false);
-                }}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  padding: "0.4rem 0.6rem",
-                  border: "none",
-                  borderRadius: "0.35rem",
-                  background: selected
-                    ? "rgba(255, 255, 255, 0.1)"
-                    : "transparent",
-                  color: selected ? HUD_TEXT_ACTIVE : HUD_TEXT_MUTED,
-                  cursor: "pointer",
-                  fontFamily: HUD_FONT_FAMILY,
-                  fontSize: "0.72rem",
-                  letterSpacing: "0.02em",
-                  textAlign: "left",
-                }}
-                onMouseEnter={(e) => {
-                  if (!selected)
-                    e.currentTarget.style.background =
-                      "rgba(255, 255, 255, 0.06)";
-                }}
-                onMouseLeave={(e) => {
-                  if (!selected)
-                    e.currentTarget.style.background = "transparent";
-                }}
-              >
-                {activeMission.label}
-              </button>
-            );
-          })()}
         </div>
       )}
     </div>
@@ -421,13 +429,19 @@ function searchLabel(item: SearchResult) {
 type SearchHudControlProps = {
   onSelectBody: (bodyId: BodyId) => void;
   onSelectMission: (mission: MissionRegistryEntry) => void;
+  onOpenChange?: (open: boolean) => void;
 };
 
 function SearchHudControl({
   onSelectBody,
   onSelectMission,
+  onOpenChange,
 }: SearchHudControlProps) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    onOpenChange?.(open);
+  }, [open, onOpenChange]);
   const [query, setQuery] = useState("");
   const { mounted, visible } = useDeferredOpen(open);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1161,6 +1175,14 @@ export function App() {
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isHudHovered, setIsHudHovered] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownOpenRef = useRef({ focus: false, search: false });
+  const updateDropdownOpen = useCallback((key: "focus" | "search", open: boolean) => {
+    dropdownOpenRef.current[key] = open;
+    setIsDropdownOpen(dropdownOpenRef.current.focus || dropdownOpenRef.current.search);
+  }, []);
+  const onFocusOpenChange = useCallback((open: boolean) => updateDropdownOpen("focus", open), [updateDropdownOpen]);
+  const onSearchOpenChange = useCallback((open: boolean) => updateDropdownOpen("search", open), [updateDropdownOpen]);
   const cameraDistanceRef = useRef(1);
   const [focusBodyId, setFocusBodyId] = useState<BodyId>(() => {
     if (PERSISTED?.focusBodyId && PERSISTED.focusBodyId in BODY_DEFINITIONS) {
@@ -1191,7 +1213,7 @@ export function App() {
     return tl;
   });
   const fullscreenSupported = document.fullscreenEnabled;
-  const hudVisible = useAmbientHud(!levaHidden || isHudHovered);
+  const hudVisible = useAmbientHud(!levaHidden || isHudHovered || isDropdownOpen);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -1273,6 +1295,7 @@ export function App() {
             focusBodyId={focusBodyId}
             activeMissionId={activeMissionId}
             onFocusBodyChange={setFocusBodyId}
+            onOpenChange={onFocusOpenChange}
           />
           {activeMissionId && (() => {
             const mission = MISSION_REGISTRY.find((m) => m.id === activeMissionId);
@@ -1302,7 +1325,10 @@ export function App() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => setActiveMissionId(null)}
+                  onClick={() => {
+                    setActiveMissionId(null);
+                    setFocusBodyId(DEFAULT_FOCUS_BODY_ID);
+                  }}
                   aria-label={`Dismiss ${mission.label}`}
                   style={{
                     display: "inline-flex",
@@ -1334,6 +1360,7 @@ export function App() {
           })()}
           <SearchHudControl
             onSelectBody={setFocusBodyId}
+            onOpenChange={onSearchOpenChange}
             onSelectMission={(mission) => {
               setFocusBodyId(mission.id);
               if (activeMissionId !== mission.id) {

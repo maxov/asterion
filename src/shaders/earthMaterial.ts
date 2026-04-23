@@ -15,6 +15,7 @@ export type EarthSurfaceDebugView =
   keyof typeof EARTH_SURFACE_DEBUG_VIEW_IDS;
 
 export type EarthMaterialBundle = {
+  atmosphereIntensityUniform: { value: number };
   material: ShaderMaterial;
   cityLightVisibilityUniform: { value: number };
   debugViewUniform: { value: number };
@@ -30,6 +31,7 @@ export function createEarthMaterial(
   initialMonthBlend: number,
   initialNightLights: number,
 ): EarthMaterialBundle {
+  const atmosphereIntensityUniform = { value: 0.8 };
   const cityLightVisibilityUniform = { value: 1 };
   const debugViewUniform = { value: EARTH_SURFACE_DEBUG_VIEW_IDS.beauty };
   const monthBlendUniform = { value: initialMonthBlend };
@@ -41,6 +43,7 @@ export function createEarthMaterial(
       dayTexture: { value: dayTexture },
       nextDayTexture: { value: nextDayTexture ?? dayTexture },
       nightTexture: { value: nightTexture },
+      atmosphereIntensity: atmosphereIntensityUniform,
       cityLightVisibility: cityLightVisibilityUniform,
       debugView: debugViewUniform,
       monthBlend: monthBlendUniform,
@@ -64,6 +67,7 @@ export function createEarthMaterial(
       uniform sampler2D dayTexture;
       uniform sampler2D nextDayTexture;
       uniform sampler2D nightTexture;
+      uniform float atmosphereIntensity;
       uniform float cityLightVisibility;
       uniform int debugView;
       uniform float monthBlend;
@@ -111,8 +115,14 @@ export function createEarthMaterial(
         float viewDot = max(dot(normal, viewDir), 0.0);
         float viewFresnel = pow(1.0 - viewDot, 4.0);
         float horizonScatter = pow(1.0 - viewDot, 1.7);
-        float dayHaze = horizonScatter * smoothstep(-0.22, 0.5, sunAlignment) * 0.18;
-        float aerialAmount = horizonScatter * smoothstep(-0.16, 0.65, sunAlignment);
+        float atmoStrength = max(atmosphereIntensity, 0.0);
+        float dayHaze = horizonScatter
+          * smoothstep(-0.22, 0.5, sunAlignment)
+          * 0.18
+          * atmoStrength;
+        float aerialAmount = horizonScatter
+          * smoothstep(-0.16, 0.65, sunAlignment)
+          * atmoStrength;
         vec3 aerialBlue = mix(
           vec3(0.03, 0.07, 0.16),
           vec3(0.08, 0.16, 0.34),
@@ -156,7 +166,10 @@ export function createEarthMaterial(
           vec3(0.12, 0.15, 0.2),
           smoothstep(-0.08, 0.12, sunAlignment)
         );
-        vec3 twilightGlow = twilightTint * twilight * (0.03 + viewFresnel * 0.16);
+        vec3 twilightGlow = twilightTint
+          * twilight
+          * (0.03 + viewFresnel * 0.16)
+          * atmoStrength;
 
         vec3 halfVector = normalize(viewDir + sunDir);
         float specularPower = mix(24.0, 180.0, waterMask);
@@ -206,6 +219,7 @@ export function createEarthMaterial(
   material.toneMapped = true;
 
   return {
+    atmosphereIntensityUniform,
     material,
     cityLightVisibilityUniform,
     debugViewUniform,

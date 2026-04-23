@@ -16,6 +16,7 @@ const DEFAULT_SAMPLE_STEP_SECONDS = 1_800;
 const DEFAULT_LUNAR_SPHERE_RADIUS_KM = 66_100;
 const DEFAULT_PARKING_ORBIT_ALTITUDE_KM = 185;
 const DEFAULT_HEAD_RADIUS_KM = 260;
+const DEFAULT_HEAD_SIZE_PX = 16;
 const DEFAULT_FLYBY_SHOULDER_KM = 22_000;
 const DEFAULT_FLYBY_TANGENT_KM = 24_000;
 const DEFAULT_OUTBOUND_CONTROL_KM = 95_000;
@@ -23,7 +24,9 @@ const DEFAULT_INBOUND_CONTROL_KM = 150_000;
 const DEFAULT_RETURN_APPROACH_OFFSET_KM = 70_000;
 const DEFAULT_EARTH_ENTRY_ALTITUDE_KM = 120;
 const DEFAULT_LINE_COLOR = "#888888";
+const DEFAULT_LINE_WIDTH_PX = 1;
 const DEFAULT_STREAK_COLOR = "#4da6ff";
+const DEFAULT_STREAK_WIDTH_PX = 2;
 
 const VECTOR_A = new Vector3();
 const VECTOR_B = new Vector3();
@@ -460,7 +463,9 @@ export function buildMissionTrajectorySamples(asset: MissionAsset) {
 export function missionHeadStyle(asset: MissionAsset) {
   return {
     color: asset.style?.head_color ?? asset.style?.streak_color ?? DEFAULT_STREAK_COLOR,
+    maxSizeKm: asset.style?.head_max_size_km,
     radiusKm: asset.style?.head_radius_km ?? DEFAULT_HEAD_RADIUS_KM,
+    sizePx: asset.style?.head_size_px ?? DEFAULT_HEAD_SIZE_PX,
   };
 }
 
@@ -468,13 +473,20 @@ export function missionLineStyle(asset: MissionAsset) {
   return {
     color: asset.style?.line_color ?? DEFAULT_LINE_COLOR,
     opacity: asset.style?.line_opacity ?? 0.4,
+    widthPx: asset.style?.line_width_px ?? DEFAULT_LINE_WIDTH_PX,
   };
 }
 
 export function missionStreakStyle(asset: MissionAsset) {
+  const color = asset.style?.streak_color ?? DEFAULT_STREAK_COLOR;
   return {
-    color: asset.style?.streak_color ?? DEFAULT_STREAK_COLOR,
+    color,
     opacity: asset.style?.streak_opacity ?? 0.95,
+    tailColor: asset.style?.streak_tail_color,
+    widthPx:
+      asset.style?.streak_width_px ??
+      asset.style?.line_width_px ??
+      DEFAULT_STREAK_WIDTH_PX,
   };
 }
 

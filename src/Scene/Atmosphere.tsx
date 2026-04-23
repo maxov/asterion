@@ -1,5 +1,6 @@
 import { useMemo, useEffect } from "react";
-import { Color } from "three";
+import { useFrame } from "@react-three/fiber";
+import { Color, Vector3 } from "three";
 import {
   SATURN_EQUATORIAL_RADIUS,
   SATURN_POLAR_RADIUS,
@@ -15,26 +16,35 @@ const GLOW_COLOR = new Color(0.85, 0.75, 0.5);
 type AtmosphereProps = {
   intensity?: number;
   power?: number;
+  worldSunDirection: Vector3;
 };
 
 export function Atmosphere({
   intensity = 0.15,
   power = 4.0,
+  worldSunDirection,
 }: AtmosphereProps) {
-
-  const material = useMemo(
-    () => createAtmosphereMaterial(GLOW_COLOR, intensity, power).material,
-    [intensity, power],
+  const bundle = useMemo(
+    () => createAtmosphereMaterial(GLOW_COLOR, 0.15, 4.0),
+    [],
   );
+
+  useFrame(() => {
+    bundle.setSunDirection(worldSunDirection);
+  });
+
+  useEffect(() => {
+    bundle.setSettings(intensity, power);
+  }, [bundle, intensity, power]);
 
   useEffect(() => {
     return () => {
-      material?.dispose();
+      bundle.dispose();
     };
-  }, [material]);
+  }, [bundle]);
 
   return (
-    <mesh scale={[1, POLAR_SCALE, 1]} material={material}>
+    <mesh scale={[1, POLAR_SCALE, 1]} material={bundle.material}>
       <sphereGeometry args={[EQUATORIAL, 128, 64]} />
     </mesh>
   );

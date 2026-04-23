@@ -24,6 +24,7 @@ import {
   type Mesh,
 } from "three";
 import { EARTH_RADIUS_KM } from "../lib/constants.ts";
+import { MISSION_BLOOM_LAYER } from "../lib/renderLayers.ts";
 import type { SolarSystemState } from "../lib/solarSystemState.ts";
 import { kmToUnits } from "../lib/units.ts";
 import {
@@ -55,6 +56,7 @@ const EARTH_RADIUS = kmToUnits(EARTH_RADIUS_KM);
 const ATMOSPHERE_SCALE = 1.02;
 const CLOUD_LAYER_SCALE = 1.003;
 const AURORA_LAYER_SCALE = 1.012;
+const MISSION_BLOOM_OCCLUDER_SCALE = 1.03;
 const FALLBACK_COLOR = "#3f78c7";
 const NIGHT_LIGHTS_INTENSITY = 1.15;
 const CLOUD_DRIFT_PERIOD_MS = 96 * 3_600_000;
@@ -252,6 +254,7 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
   const [monthIndex, setMonthIndex] = useState(timelineRef.current.monthIndex);
   const monthIndexRef = useRef(monthIndex);
   const surfaceMeshRef = useRef<Mesh>(null);
+  const surfaceOccluderRef = useRef<Mesh>(null);
   const cloudSpinRef = useRef<Group>(null);
   const auroraSpinRef = useRef<Group>(null);
   const earthWorldPositionRef = useRef(new Vector3());
@@ -395,6 +398,11 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
   }, [customAuroraMaterialBundle]);
 
   useEffect(() => {
+    surfaceOccluderRef.current?.layers.disableAll();
+    surfaceOccluderRef.current?.layers.enable(MISSION_BLOOM_LAYER);
+  }, []);
+
+  useEffect(() => {
     if (dayError) {
       console.warn(`Earth: failed to load ${currentDayPath}`, dayError);
     }
@@ -459,6 +467,7 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     }
 
     if (customSurface) {
+      customSurface.atmosphereIntensityUniform.value = customAtmosphereIntensity;
       customSurface.cityLightVisibilityUniform.value = cityLightVisibility;
       customSurface.monthBlendUniform.value = timeline.blend;
       customSurface.nightLightsUniform.value = customNightLights;
@@ -534,6 +543,17 @@ export function Earth({ localSunDirection, simulationStateRef }: EarthProps) {
     <>
       <mesh ref={surfaceMeshRef} material={surfaceMaterial}>
         <sphereGeometry args={[EARTH_RADIUS, 128, 64]} />
+      </mesh>
+      <mesh
+        ref={surfaceOccluderRef}
+        scale={[
+          MISSION_BLOOM_OCCLUDER_SCALE,
+          MISSION_BLOOM_OCCLUDER_SCALE,
+          MISSION_BLOOM_OCCLUDER_SCALE,
+        ]}
+      >
+        <sphereGeometry args={[EARTH_RADIUS, 128, 64]} />
+        <meshBasicMaterial colorWrite={false} toneMapped={false} />
       </mesh>
       {cloudMaterialBundle ? (
         <group ref={cloudSpinRef}>
